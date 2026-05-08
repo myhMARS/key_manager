@@ -1,0 +1,80 @@
+#:import dp kivy.metrics.dp
+
+<HomeScreen>:
+    name: 'home'
+
+    canvas.before:
+        Color:
+            rgba: 0.96, 0.96, 0.96, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(16), dp(12), dp(16), dp(8)
+        spacing: dp(0)
+
+        # Title row
+        BoxLayout:
+            orientation: 'horizontal'
+            size_hint_y: None
+            height: dp(44)
+            spacing: dp(8)
+
+            Label:
+                text: 'Key Manager'
+                font_size: '22sp'
+                bold: True
+                color: 0.1, 0.1, 0.1, 1
+                size_hint_x: 1
+                halign: 'left'
+                valign: 'middle'
+                text_size: self.width, self.height
+
+            Button:
+                text: '+'
+                size_hint: None, None
+                size: dp(34), dp(34)
+                pos_hint: {'center_y': 0.5}
+                font_size: '20sp'
+                color: 0.4, 0.4, 0.4, 1
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                on_release: root.show_add_platform()
+                canvas.before:
+                    Color:
+                        rgba: 0.92, 0.92, 0.92, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(10)]
+
+        # Card area
+        RelativeLayout:
+            id: card_area
+            size_hint_y: 1
+
+        # Dots indicator
+        Widget:
+            size_hint_y: None
+            height: dp(6)
+
+        AnchorLayout:
+            size_hint_y: None
+            height: dp(20)
+            anchor_x: 'center'
+            anchor_y: 'center'
+
+            BoxLayout:
+                id: dots_container
+                orientation: 'horizontal'
+                size_hint: None, None
+                height: dp(10)
+                width: self.minimum_width
+                spacing: dp(6)
+
+        Widget:
+            size_hint_y: None
+            height: dp(4)

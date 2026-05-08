@@ -1,0 +1,8 @@
+[project]
+name = "key-manager"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "kivy>=2.3.0",
+    "httpx>=0.28.0",
+]

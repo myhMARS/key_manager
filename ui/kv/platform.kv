@@ -1,0 +1,195 @@
+#:import dp kivy.metrics.dp
+
+<PlatformScreen>:
+    name: 'platform'
+
+    canvas.before:
+        Color:
+            rgba: 0.96, 0.96, 0.96, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(16), dp(8), dp(16), dp(8)
+        spacing: dp(8)
+        pos: root.pos
+        size: root.size
+
+        # Header
+        BoxLayout:
+            id: header_box
+            orientation: 'horizontal'
+            size_hint_y: None
+            height: dp(56)
+            spacing: dp(8)
+
+            Button:
+                text: '<'
+                size_hint: None, None
+                size: dp(40), dp(40)
+                pos_hint: {'center_y': 0.5}
+                font_size: '20sp'
+                color: 0.3, 0.3, 0.3, 1
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                on_release: root.go_back()
+
+            BoxLayout:
+                id: header_info
+                orientation: 'vertical'
+                size_hint_x: 1
+                size_hint_y: None
+                height: dp(44)
+                pos_hint: {'center_y': 0.5}
+                spacing: dp(2)
+
+                BoxLayout:
+                    size_hint_y: None
+                    height: dp(26)
+                    spacing: dp(8)
+
+                    AnchorLayout:
+                        id: header_icon_area
+                        size_hint: None, None
+                        size: dp(24), dp(24)
+                        pos_hint: {'center_y': 0.5}
+                        anchor_x: 'center'
+                        anchor_y: 'center'
+
+                    Label:
+                        id: header_title
+                        text: ''
+                        font_size: '18sp'
+                        bold: True
+                        color: 0.1, 0.1, 0.1, 1
+                        size_hint_x: 1
+                        halign: 'left'
+                        text_size: self.width, None
+
+                Label:
+                    id: header_subtitle
+                    text: ''
+                    font_size: '11sp'
+                    color: 0.5, 0.5, 0.5, 1
+                    size_hint_y: None
+                    height: dp(16)
+                    halign: 'left'
+                    text_size: self.width, None
+
+            Button:
+                id: edit_platform_btn
+                text: 'Edit'
+                size_hint: None, None
+                size: dp(40), dp(40)
+                pos_hint: {'center_y': 0.5}
+                font_size: '12sp'
+                color: 0.3, 0.3, 0.7, 1
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                opacity: 0
+                disabled: True
+                on_release: root.show_edit_platform()
+                canvas.before:
+                    Color:
+                        rgba: 0.9, 0.9, 0.97, self.opacity
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(12)]
+
+            Button:
+                id: delete_platform_btn
+                text: 'Del'
+                size_hint: None, None
+                size: dp(40), dp(40)
+                pos_hint: {'center_y': 0.5}
+                font_size: '12sp'
+                color: 0.9, 0.2, 0.2, 1
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                opacity: 0
+                disabled: True
+                on_release: root.confirm_delete_platform()
+                canvas.before:
+                    Color:
+                        rgba: 0.95, 0.9, 0.9, self.opacity
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(12)]
+
+            Button:
+                id: add_btn
+                text: '+'
+                size_hint: None, None
+                size: dp(40), dp(40)
+                pos_hint: {'center_y': 0.5}
+                font_size: '22sp'
+                color: 1, 1, 1, 1
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                on_release: root.show_add_dialog()
+                canvas.before:
+                    Color:
+                        rgba: root.accent_color
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(12)]
+
+        # Divider
+        Widget:
+            size_hint_y: None
+            height: dp(1)
+            canvas.before:
+                Color:
+                    rgba: 0.88, 0.88, 0.88, 1
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+
+        # Progress bar
+        ProgressBar:
+            id: progress_bar
+            size_hint_y: None
+            height: dp(4)
+            opacity: 0
+            value: 0
+
+        # Result card
+        BoxLayout:
+            id: result_card
+            orientation: 'vertical'
+            size_hint_y: None
+            height: 0
+            opacity: 0
+            padding: dp(16)
+            spacing: dp(6)
+            canvas.before:
+                Color:
+                    rgba: 1, 1, 1, 1
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [dp(12)]
+
+        # Key list
+        ScrollView:
+            id: key_scroll
+            do_scroll_x: False
+            do_scroll_y: True
+            size_hint_y: 1
+
+            BoxLayout:
+                id: key_list_container
+                orientation: 'vertical'
+                spacing: dp(8)
+                size_hint_y: None
+                height: self.minimum_height
+                padding: [0, dp(4)]

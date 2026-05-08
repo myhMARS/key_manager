@@ -1,0 +1,596 @@
+#:import dp kivy.metrics.dp
+
+<AddKeyPopup>:
+    title: ''
+    separator_height: 0
+    size_hint: 0.9, None
+    height: dp(320)
+    auto_dismiss: True
+    background: ''
+    background_color: 0, 0, 0, 0
+    overlay_color: 0, 0, 0, 0.4
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(20)
+        spacing: dp(14)
+        size_hint: 1, 1
+        canvas.before:
+            Color:
+                rgba: 1, 1, 1, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [dp(16)]
+
+        BoxLayout:
+            size_hint_y: None
+            height: dp(32)
+            spacing: dp(10)
+
+            Label:
+                text: '+'
+                font_size: '18sp'
+                size_hint_x: None
+                width: dp(28)
+                color: root.accent_color
+
+            Label:
+                text: 'Add ' + root.platform_name + ' Key'
+                font_size: '16sp'
+                bold: True
+                color: 0.1, 0.1, 0.1, 1
+                size_hint_x: 1
+                halign: 'left'
+                text_size: self.width, None
+
+        TextInput:
+            id: name_input
+            hint_text: 'Key Name (e.g. Work account)'
+            font_size: '14sp'
+            size_hint_y: None
+            height: dp(48)
+            multiline: False
+            write_tab: False
+            background_normal: ''
+            background_active: ''
+            background_color: 0.96, 0.96, 0.96, 1
+            cursor_color: 0.3, 0.3, 0.3, 1
+            foreground_color: 0.1, 0.1, 0.1, 1
+            hint_text_color: 0.6, 0.6, 0.6, 1
+            padding: [dp(12), dp(14), dp(12), dp(12)]
+
+        TextInput:
+            id: key_input
+            hint_text: 'API Key'
+            font_size: '14sp'
+            size_hint_y: None
+            height: dp(48)
+            multiline: False
+            password: True
+            write_tab: False
+            background_normal: ''
+            background_active: ''
+            background_color: 0.96, 0.96, 0.96, 1
+            cursor_color: 0.3, 0.3, 0.3, 1
+            foreground_color: 0.1, 0.1, 0.1, 1
+            hint_text_color: 0.6, 0.6, 0.6, 1
+            padding: [dp(12), dp(14), dp(12), dp(12)]
+
+        Label:
+            id: error_label
+            text: ''
+            font_size: '12sp'
+            color: 0.9, 0.2, 0.2, 1
+            size_hint_y: None
+            height: dp(18)
+            halign: 'left'
+            text_size: self.width, None
+
+        BoxLayout:
+            size_hint_y: None
+            height: dp(44)
+            spacing: dp(12)
+
+            Widget:
+                size_hint_x: 1
+
+            Button:
+                text: 'Cancel'
+                size_hint_x: None
+                width: dp(80)
+                color: 0.4, 0.4, 0.4, 1
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                font_size: '14sp'
+                on_release: root.dismiss()
+
+            Button:
+                text: 'Save'
+                size_hint_x: None
+                width: dp(80)
+                color: 1, 1, 1, 1
+                font_size: '14sp'
+                bold: True
+                on_release: root.on_save()
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                canvas.before:
+                    Color:
+                        rgba: root.accent_color
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(10)]
+
+
+<RenameKeyPopup>:
+    title: ''
+    separator_height: 0
+    size_hint: 0.85, None
+    height: dp(200)
+    auto_dismiss: True
+    background: ''
+    background_color: 0, 0, 0, 0
+    overlay_color: 0, 0, 0, 0.4
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(20)
+        spacing: dp(12)
+        size_hint: 1, 1
+        canvas.before:
+            Color:
+                rgba: 1, 1, 1, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [dp(16)]
+
+        Label:
+            text: 'Rename Key'
+            font_size: '16sp'
+            bold: True
+            color: 0.1, 0.1, 0.1, 1
+            size_hint_y: None
+            height: dp(28)
+            halign: 'left'
+            text_size: self.width, None
+
+        TextInput:
+            id: rename_input
+            hint_text: 'New name'
+            font_size: '14sp'
+            size_hint_y: None
+            height: dp(48)
+            multiline: False
+            write_tab: False
+            background_normal: ''
+            background_active: ''
+            background_color: 0.96, 0.96, 0.96, 1
+            cursor_color: 0.3, 0.3, 0.3, 1
+            foreground_color: 0.1, 0.1, 0.1, 1
+            hint_text_color: 0.6, 0.6, 0.6, 1
+            padding: [dp(12), dp(14), dp(12), dp(12)]
+
+        Label:
+            id: rename_error
+            text: ''
+            font_size: '12sp'
+            color: 0.9, 0.2, 0.2, 1
+            size_hint_y: None
+            height: dp(16)
+            halign: 'left'
+            text_size: self.width, None
+
+        BoxLayout:
+            size_hint_y: None
+            height: dp(40)
+            spacing: dp(12)
+
+            Widget:
+                size_hint_x: 1
+
+            Button:
+                text: 'Cancel'
+                size_hint_x: None
+                width: dp(80)
+                color: 0.4, 0.4, 0.4, 1
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                font_size: '14sp'
+                on_release: root.dismiss()
+
+            Button:
+                text: 'Save'
+                size_hint_x: None
+                width: dp(80)
+                color: 1, 1, 1, 1
+                font_size: '14sp'
+                bold: True
+                on_release: root.on_save()
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                canvas.before:
+                    Color:
+                        rgba: root.accent_color
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(10)]
+
+
+<AddPlatformPopup>:
+    title: ''
+    separator_height: 0
+    size_hint: 0.9, None
+    height: dp(320)
+    auto_dismiss: True
+    background: ''
+    background_color: 0, 0, 0, 0
+    overlay_color: 0, 0, 0, 0.4
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(20)
+        spacing: dp(12)
+        size_hint: 1, 1
+        canvas.before:
+            Color:
+                rgba: 1, 1, 1, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [dp(16)]
+
+        Label:
+            text: 'Add Platform'
+            font_size: '16sp'
+            bold: True
+            color: 0.1, 0.1, 0.1, 1
+            size_hint_y: None
+            height: dp(28)
+            halign: 'left'
+            text_size: self.width, None
+
+        TextInput:
+            id: platform_name_input
+            hint_text: 'Platform Name (e.g. Claude)'
+            font_size: '14sp'
+            size_hint_y: None
+            height: dp(44)
+            multiline: False
+            write_tab: False
+            background_normal: ''
+            background_active: ''
+            background_color: 0.96, 0.96, 0.96, 1
+            cursor_color: 0.3, 0.3, 0.3, 1
+            foreground_color: 0.1, 0.1, 0.1, 1
+            hint_text_color: 0.6, 0.6, 0.6, 1
+            padding: [dp(12), dp(12), dp(12), dp(10)]
+
+        TextInput:
+            id: base_url_input
+            hint_text: 'Base URL (e.g. https://api.example.com)'
+            font_size: '14sp'
+            size_hint_y: None
+            height: dp(44)
+            multiline: False
+            write_tab: False
+            background_normal: ''
+            background_active: ''
+            background_color: 0.96, 0.96, 0.96, 1
+            cursor_color: 0.3, 0.3, 0.3, 1
+            foreground_color: 0.1, 0.1, 0.1, 1
+            hint_text_color: 0.6, 0.6, 0.6, 1
+            padding: [dp(12), dp(12), dp(12), dp(10)]
+
+        TextInput:
+            id: verify_url_input
+            hint_text: 'Verify Path (e.g. /v1/models)'
+            font_size: '14sp'
+            size_hint_y: None
+            height: dp(44)
+            multiline: False
+            write_tab: False
+            background_normal: ''
+            background_active: ''
+            background_color: 0.96, 0.96, 0.96, 1
+            cursor_color: 0.3, 0.3, 0.3, 1
+            foreground_color: 0.1, 0.1, 0.1, 1
+            hint_text_color: 0.6, 0.6, 0.6, 1
+            padding: [dp(12), dp(12), dp(12), dp(10)]
+
+        Label:
+            id: platform_error_label
+            text: ''
+            font_size: '12sp'
+            color: 0.9, 0.2, 0.2, 1
+            size_hint_y: None
+            height: dp(16)
+            halign: 'left'
+            text_size: self.width, None
+
+        BoxLayout:
+            size_hint_y: None
+            height: dp(40)
+            spacing: dp(12)
+
+            Widget:
+                size_hint_x: 1
+
+            Button:
+                text: 'Cancel'
+                size_hint_x: None
+                width: dp(80)
+                color: 0.4, 0.4, 0.4, 1
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                font_size: '14sp'
+                on_release: root.dismiss()
+
+            Button:
+                text: 'Add'
+                size_hint_x: None
+                width: dp(80)
+                color: 1, 1, 1, 1
+                font_size: '14sp'
+                bold: True
+                on_release: root.on_save()
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                canvas.before:
+                    Color:
+                        rgba: root.accent_color
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(10)]
+
+
+<ConfirmDeletePlatformPopup>:
+    title: ''
+    separator_height: 0
+    size_hint: 0.85, None
+    height: dp(240)
+    auto_dismiss: True
+    background: ''
+    background_color: 0, 0, 0, 0
+    overlay_color: 0, 0, 0, 0.4
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(20), dp(16), dp(20), dp(16)
+        spacing: dp(12)
+        size_hint: 1, 1
+        canvas.before:
+            Color:
+                rgba: 1, 1, 1, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [dp(16)]
+
+        # Warning icon + title
+        BoxLayout:
+            size_hint_y: None
+            height: dp(26)
+            spacing: dp(8)
+
+            Label:
+                text: '!'
+                font_size: '14sp'
+                bold: True
+                color: 0.9, 0.2, 0.2, 1
+                size_hint: None, None
+                size: dp(22), dp(22)
+                halign: 'center'
+                valign: 'middle'
+                text_size: self.size
+                canvas.before:
+                    Color:
+                        rgba: 0.95, 0.9, 0.9, 1
+                    Ellipse:
+                        pos: self.pos
+                        size: self.size
+
+            Label:
+                text: 'Delete ' + root.platform_name + '?'
+                font_size: '15sp'
+                bold: True
+                color: 0.15, 0.15, 0.15, 1
+                size_hint_x: 1
+                halign: 'left'
+                valign: 'middle'
+                text_size: self.width, self.height
+
+        # Description
+        Label:
+            text: root.key_count_text
+            font_size: '13sp'
+            color: 0.45, 0.45, 0.45, 1
+            size_hint_y: None
+            height: dp(40)
+            halign: 'left'
+            valign: 'top'
+            text_size: self.width, None
+
+        Widget:
+            size_hint_y: 1
+
+        # Buttons
+        BoxLayout:
+            size_hint_y: None
+            height: dp(40)
+            spacing: dp(12)
+
+            Button:
+                text: 'Cancel'
+                size_hint_x: 1
+                color: 0.3, 0.3, 0.3, 1
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                font_size: '14sp'
+                on_release: root.dismiss()
+                canvas.before:
+                    Color:
+                        rgba: 0.94, 0.94, 0.94, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(10)]
+
+            Button:
+                text: 'Delete'
+                size_hint_x: 1
+                color: 1, 1, 1, 1
+                font_size: '14sp'
+                bold: True
+                on_release: root.on_confirm()
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                canvas.before:
+                    Color:
+                        rgba: 0.9, 0.2, 0.2, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(10)]
+
+
+<EditPlatformPopup>:
+    title: ''
+    separator_height: 0
+    size_hint: 0.9, None
+    height: dp(320)
+    auto_dismiss: True
+    background: ''
+    background_color: 0, 0, 0, 0
+    overlay_color: 0, 0, 0, 0.4
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(20)
+        spacing: dp(12)
+        size_hint: 1, 1
+        canvas.before:
+            Color:
+                rgba: 1, 1, 1, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [dp(16)]
+
+        Label:
+            text: 'Edit Platform'
+            font_size: '16sp'
+            bold: True
+            color: 0.1, 0.1, 0.1, 1
+            size_hint_y: None
+            height: dp(28)
+            halign: 'left'
+            text_size: self.width, None
+
+        TextInput:
+            id: edit_name_input
+            hint_text: 'Platform Name'
+            font_size: '14sp'
+            size_hint_y: None
+            height: dp(44)
+            multiline: False
+            write_tab: False
+            background_normal: ''
+            background_active: ''
+            background_color: 0.96, 0.96, 0.96, 1
+            cursor_color: 0.3, 0.3, 0.3, 1
+            foreground_color: 0.1, 0.1, 0.1, 1
+            hint_text_color: 0.6, 0.6, 0.6, 1
+            padding: [dp(12), dp(12), dp(12), dp(10)]
+
+        TextInput:
+            id: edit_base_url_input
+            hint_text: 'Base URL'
+            font_size: '14sp'
+            size_hint_y: None
+            height: dp(44)
+            multiline: False
+            write_tab: False
+            background_normal: ''
+            background_active: ''
+            background_color: 0.96, 0.96, 0.96, 1
+            cursor_color: 0.3, 0.3, 0.3, 1
+            foreground_color: 0.1, 0.1, 0.1, 1
+            hint_text_color: 0.6, 0.6, 0.6, 1
+            padding: [dp(12), dp(12), dp(12), dp(10)]
+
+        TextInput:
+            id: edit_verify_url_input
+            hint_text: 'Verify Path'
+            font_size: '14sp'
+            size_hint_y: None
+            height: dp(44)
+            multiline: False
+            write_tab: False
+            background_normal: ''
+            background_active: ''
+            background_color: 0.96, 0.96, 0.96, 1
+            cursor_color: 0.3, 0.3, 0.3, 1
+            foreground_color: 0.1, 0.1, 0.1, 1
+            hint_text_color: 0.6, 0.6, 0.6, 1
+            padding: [dp(12), dp(12), dp(12), dp(10)]
+
+        Label:
+            id: edit_error_label
+            text: ''
+            font_size: '12sp'
+            color: 0.9, 0.2, 0.2, 1
+            size_hint_y: None
+            height: dp(16)
+            halign: 'left'
+            text_size: self.width, None
+
+        BoxLayout:
+            size_hint_y: None
+            height: dp(40)
+            spacing: dp(12)
+
+            Widget:
+                size_hint_x: 1
+
+            Button:
+                text: 'Cancel'
+                size_hint_x: None
+                width: dp(80)
+                color: 0.4, 0.4, 0.4, 1
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                font_size: '14sp'
+                on_release: root.dismiss()
+
+            Button:
+                text: 'Save'
+                size_hint_x: None
+                width: dp(80)
+                color: 1, 1, 1, 1
+                font_size: '14sp'
+                bold: True
+                on_release: root.on_save()
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                canvas.before:
+                    Color:
+                        rgba: root.accent_color
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(10)]

@@ -1,0 +1,324 @@
+#:import dp kivy.metrics.dp
+
+<TouchCard>:
+    canvas.before:
+        Color:
+            rgba: 1, 1, 1, 1
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(20)]
+        Color:
+            rgba: 0.88, 0.88, 0.88, 0.5
+        Line:
+            rounded_rectangle: [self.x, self.y, self.width, self.height, dp(20)]
+            width: 1
+
+    BoxLayout:
+        orientation: 'vertical'
+        spacing: dp(12)
+        padding: dp(20), dp(28), dp(20), dp(24)
+        pos: root.pos
+        size: root.size
+
+        # Top spacer
+        Widget:
+            size_hint_y: 1
+
+        # Icon container
+        AnchorLayout:
+            size_hint_y: None
+            height: dp(72)
+            anchor_x: 'center'
+            anchor_y: 'center'
+
+            AnchorLayout:
+                id: icon_box
+                size_hint: None, None
+                size: dp(72), dp(72)
+                anchor_x: 'center'
+                anchor_y: 'center'
+                canvas.before:
+                    Color:
+                        rgba: root.icon_bg_color
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(18)]
+
+        Widget:
+            size_hint_y: None
+            height: dp(8)
+
+        # Name
+        Label:
+            id: name_label
+            text: root.platform_name
+            font_size: '20sp'
+            bold: True
+            color: 0.1, 0.1, 0.1, 1
+            size_hint_y: None
+            height: dp(28)
+            halign: 'center'
+            text_size: self.width, None
+
+        # Key count badge
+        AnchorLayout:
+            size_hint_y: None
+            height: dp(30)
+            anchor_x: 'center'
+            anchor_y: 'center'
+
+            Label:
+                id: count_label
+                text: root.key_count_text
+                font_size: '12sp'
+                color: root.accent_color
+                bold: True
+                size_hint: None, None
+                size: self.texture_size[0] + dp(24), dp(26)
+                halign: 'center'
+                valign: 'middle'
+                canvas.before:
+                    Color:
+                        rgba: root.accent_bg_color
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(13)]
+
+        # Feature text
+        AnchorLayout:
+            size_hint_y: None
+            height: dp(24)
+            anchor_x: 'center'
+
+            BoxLayout:
+                size_hint: None, None
+                height: dp(20)
+                width: self.minimum_width
+                spacing: dp(6)
+
+                Label:
+                    text: '✓' if root.has_balance else 'i'
+                    font_size: '11sp'
+                    font_name: 'Symbol' if root.has_balance else 'Roboto'
+                    color: 0.5, 0.5, 0.5, 1
+                    size_hint: None, None
+                    size: dp(18), dp(18)
+                    halign: 'center'
+                    valign: 'middle'
+                    text_size: self.size
+                    bold: False if root.has_balance else True
+                    canvas.before:
+                        Color:
+                            rgba: 0.93, 0.93, 0.93, 1
+                        Ellipse:
+                            pos: self.center_x - dp(8), self.center_y - dp(8)
+                            size: dp(16), dp(16)
+
+                Label:
+                    id: feature_label
+                    text: root.feature_text
+                    font_size: '13sp'
+                    color: 0.5, 0.5, 0.5, 1
+                    size_hint: None, None
+                    size: self.texture_size[0], dp(20)
+
+        # Bottom spacer
+        Widget:
+            size_hint_y: 1
+
+        # View Keys button
+        Button:
+            id: view_btn
+            text: 'View Keys  >'
+            size_hint: 1, None
+            height: dp(48)
+            on_release: root.on_view_keys()
+            canvas.before:
+                Color:
+                    rgba: root.accent_color
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [dp(12)]
+            canvas.after:
+                Color:
+                    rgba: 0, 0, 0, 0
+            color: 1, 1, 1, 1
+            background_color: 0, 0, 0, 0
+            background_normal: ''
+            background_down: ''
+            font_size: '15sp'
+            bold: True
+
+
+<Dot>:
+    size_hint: None, None
+    size: dp(8), dp(6)
+    canvas.before:
+        Color:
+            rgba: self.dot_color
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(3)]
+
+
+<KeyItem>:
+    size_hint_y: None
+    height: dp(76)
+    canvas.before:
+        Color:
+            rgba: 1, 1, 1, 1
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(12)]
+        Color:
+            rgba: 0.88, 0.88, 0.88, 0.4
+        Line:
+            rounded_rectangle: [self.x, self.y, self.width, self.height, dp(12)]
+            width: 1
+
+    BoxLayout:
+        orientation: 'horizontal'
+        padding: dp(14)
+        pos: root.pos
+        size: root.size
+
+        BoxLayout:
+            orientation: 'vertical'
+            size_hint_x: 1
+            spacing: dp(2)
+
+            Label:
+                text: root.key_name
+                font_size: '14sp'
+                bold: True
+                color: 0.15, 0.15, 0.15, 1
+                size_hint_y: None
+                height: dp(22)
+                halign: 'left'
+                text_size: self.width, None
+
+            Label:
+                text: root.masked_key
+                font_size: '12sp'
+                color: 0.5, 0.5, 0.5, 1
+                size_hint_y: None
+                height: dp(18)
+                halign: 'left'
+                text_size: self.width, None
+
+            Label:
+                text: root.created_at
+                font_size: '11sp'
+                color: 0.6, 0.6, 0.6, 1
+                size_hint_y: None
+                height: dp(16)
+                halign: 'left'
+                text_size: self.width, None
+
+        Button:
+            text: ''
+            size_hint: None, None
+            size: dp(36), dp(36)
+            pos_hint: {'center_y': 0.5}
+            background_normal: ''
+            background_down: ''
+            background_color: 0, 0, 0, 0
+            on_release: root.open_menu(self)
+            canvas.after:
+                Color:
+                    rgba: 0.4, 0.4, 0.4, 1
+                Ellipse:
+                    pos: self.center_x - dp(1.5), self.center_y + dp(5)
+                    size: dp(3), dp(3)
+                Ellipse:
+                    pos: self.center_x - dp(1.5), self.center_y - dp(1.5)
+                    size: dp(3), dp(3)
+                Ellipse:
+                    pos: self.center_x - dp(1.5), self.center_y - dp(8)
+                    size: dp(3), dp(3)
+
+
+<EmptyKeyState>:
+    size_hint_y: None
+    height: dp(200)
+
+    BoxLayout:
+        orientation: 'vertical'
+        spacing: dp(8)
+        size_hint: None, None
+        size: dp(200), dp(120)
+        pos: root.x + (root.width - self.width) / 2, root.y + (root.height - self.height) / 2
+
+        Label:
+            text: 'KEY'
+            font_size: '24sp'
+            color: 0.75, 0.75, 0.75, 1
+            bold: True
+            size_hint_y: None
+            height: dp(48)
+            halign: 'center'
+            text_size: self.width, None
+
+        Label:
+            text: 'No keys yet'
+            font_size: '15sp'
+            color: 0.5, 0.5, 0.5, 1
+            bold: True
+            size_hint_y: None
+            height: dp(22)
+            halign: 'center'
+            text_size: self.width, None
+
+        Label:
+            text: 'Tap + to add your first key'
+            font_size: '12sp'
+            color: 0.6, 0.6, 0.6, 1
+            size_hint_y: None
+            height: dp(18)
+            halign: 'center'
+            text_size: self.width, None
+
+
+<SnackBar>:
+    size_hint: None, None
+    size: dp(280), dp(46)
+    pos_hint: {'center_x': 0.5}
+
+    canvas.before:
+        Color:
+            rgba: self.bg_color
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(8)]
+
+    BoxLayout:
+        orientation: 'horizontal'
+        spacing: dp(8)
+        padding: dp(12), 0, dp(12), 0
+        pos: root.pos
+        size: root.size
+
+        Label:
+            text: '✓' if 'success' in root.snack_type else '✗' if 'error' in root.snack_type else 'i'
+            font_size: '14sp'
+            font_name: 'Symbol'
+            color: 1, 1, 1, 1
+            size_hint_x: None
+            width: dp(20)
+
+        Label:
+            id: snack_message
+            text: root.message
+            font_size: '13sp'
+            color: 1, 1, 1, 1
+            size_hint_x: 1
+            halign: 'left'
+            text_size: self.width, None
+            valign: 'middle'
