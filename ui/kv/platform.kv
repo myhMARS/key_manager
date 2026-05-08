@@ -154,6 +154,24 @@
                     pos: self.pos
                     size: self.size
 
+        # Search bar
+        TextInput:
+            id: search_input
+            hint_text: 'Search keys...'
+            font_size: '14sp'
+            size_hint_y: None
+            height: dp(40)
+            multiline: False
+            write_tab: False
+            background_normal: ''
+            background_active: ''
+            background_color: 0.94, 0.94, 0.94, 1
+            cursor_color: 0.2, 0.2, 0.2, 1
+            foreground_color: 0.1, 0.1, 0.1, 1
+            hint_text_color: 0.55, 0.55, 0.55, 1
+            padding: [dp(12), dp(10), dp(12), dp(8)]
+            on_text: root.on_search_text(self.text)
+
         # Progress bar
         ProgressBar:
             id: progress_bar

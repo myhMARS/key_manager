@@ -6,7 +6,17 @@ Falls back gracefully on non-Android platforms.
 """
 
 import base64
+import os
 from kivy.utils import platform as kivy_platform
+
+
+def _get_prefs():
+    """Get Android SharedPreferences for biometric password storage."""
+    from jnius import autoclass
+    PythonActivity = autoclass('org.kivy.android.PythonActivity')
+    Context = autoclass('android.content.Context')
+    activity = PythonActivity.mActivity
+    return activity.getSharedPreferences("km_biometric", Context.MODE_PRIVATE)
 
 
 def is_biometric_available() -> bool:
@@ -37,28 +47,28 @@ def has_stored_password() -> bool:
 
 
 def store_password_for_biometric(password: str):
-    """Store password for biometric unlock in app-private SharedPreferences."""
+    """Store password encrypted with device-bound key in SharedPreferences."""
     if kivy_platform != 'android':
         return
     try:
-        encoded = base64.b64encode(password.encode('utf-8')).decode('ascii')
+        encrypted = _encrypt_for_storage(password)
         prefs = _get_prefs()
         editor = prefs.edit()
-        editor.putString("enc_password", encoded)
+        editor.putString("enc_password", encrypted)
         editor.apply()
     except Exception:
         pass
 
 
 def get_stored_password() -> str:
-    """Retrieve the stored password after device auth succeeds."""
+    """Retrieve and decrypt the stored password after device auth succeeds."""
     if kivy_platform != 'android':
         return ""
     try:
         prefs = _get_prefs()
         encoded = prefs.getString("enc_password", "")
         if encoded:
-            return base64.b64decode(encoded.encode('ascii')).decode('utf-8')
+            return _decrypt_from_storage(encoded)
         return ""
     except Exception:
         return ""
@@ -127,10 +137,35 @@ def authenticate_biometric(on_success, on_failure):
         on_failure(f"Auth error: {e}")
 
 
-def _get_prefs():
-    """Get Android SharedPreferences."""
-    from jnius import autoclass
-    PythonActivity = autoclass('org.kivy.android.PythonActivity')
-    Context = autoclass('android.content.Context')
-    activity = PythonActivity.mActivity
-    return activity.getSharedPreferences("km_biometric", Context.MODE_PRIVATE)
+def _get_device_key() -> bytes:
+    """Derive a device-specific encryption key for biometric password storage.
+    Uses Android ID + package name as seed, not exportable."""
+    try:
+        from jnius import autoclass
+        PythonActivity = autoclass('org.kivy.android.PythonActivity')
+        Settings = autoclass('android.provider.Settings$Secure')
+        activity = PythonActivity.mActivity
+        android_id = Settings.getString(
+            activity.getContentResolver(), "android_id")
+        seed = f"{android_id}:org.keymanager.keymanager".encode('utf-8')
+    except Exception:
+        seed = b"fallback_desktop_seed_not_secure"
+
+    import hashlib
+    return hashlib.pbkdf2_hmac('sha256', seed, b'km_bio_salt', 100_000, dklen=32)
+
+
+def _encrypt_for_storage(plaintext: str) -> str:
+    """Encrypt password with device-bound key before storing."""
+    from crypto import encrypt_raw
+    key = _get_device_key()
+    payload = encrypt_raw(plaintext.encode('utf-8'), key)
+    return base64.b64encode(payload).decode('ascii')
+
+
+def _decrypt_from_storage(encoded: str) -> str:
+    """Decrypt password with device-bound key."""
+    from crypto import decrypt_raw
+    key = _get_device_key()
+    payload = base64.b64decode(encoded)
+    return decrypt_raw(payload, key).decode('utf-8')

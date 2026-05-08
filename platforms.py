@@ -8,7 +8,6 @@ class Platform:
     icon: str
     base_url: str = ""
     balance_url: str = ""
-    balance_parser: str = ""
     verify_url: str = ""
     auth_header: str = "Bearer {api_key}"
     key_prefix: str = ""
@@ -22,17 +21,16 @@ BUILTIN_PLATFORMS: dict[str, Platform] = {
         id="deepseek",
         name="DeepSeek",
         icon="D",
-        icon_path="icon/deepseek.png",
+        icon_path="assets/icon/deepseek.png",
         base_url="https://api.deepseek.com",
         balance_url="/user/balance",
-        balance_parser="deepseek",
         key_prefix="sk-",
     ),
     "openai": Platform(
         id="openai",
         name="OpenAI",
         icon="O",
-        icon_path="icon/openai.png",
+        icon_path="assets/icon/openai.png",
         base_url="https://api.openai.com",
         verify_url="/v1/models",
         key_prefix="sk-",
@@ -41,7 +39,7 @@ BUILTIN_PLATFORMS: dict[str, Platform] = {
         id="bailian",
         name="阿里百炼",
         icon="A",
-        icon_path="icon/bailian.png",
+        icon_path="assets/icon/bailian.png",
         base_url="https://dashscope.aliyuncs.com/compatible-mode",
         verify_url="/v1/models",
         key_prefix="sk-",
@@ -50,7 +48,7 @@ BUILTIN_PLATFORMS: dict[str, Platform] = {
         id="mimo",
         name="小米 Mimo",
         icon="M",
-        icon_path="icon/xiaomi.png",
+        icon_path="assets/icon/xiaomi.png",
         base_url="https://api.xiaomimimo.com",
         verify_url="/v1/models",
     ),

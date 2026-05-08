@@ -181,17 +181,26 @@
         Line:
             rounded_rectangle: [self.x, self.y, self.width, self.height, dp(12)]
             width: 1
+    canvas.after:
+        # Status indicator - full-height bar hugging left edge inside card
+        Color:
+            rgba: (0.2, 0.8, 0.4, 1) if self.key_status == 'valid' else (0.9, 0.2, 0.2, 1) if self.key_status == 'invalid' else (0.9, 0.75, 0.2, 1) if self.key_status == 'checking' else (0, 0, 0, 0)
+        Rectangle:
+            pos: self.x + dp(1), self.y + dp(12)
+            size: dp(3), self.height - dp(24)
 
     BoxLayout:
         orientation: 'horizontal'
-        padding: dp(14)
+        padding: dp(14), dp(12), dp(10), dp(12)
+        spacing: dp(8)
         pos: root.pos
         size: root.size
 
         BoxLayout:
             orientation: 'vertical'
             size_hint_x: 1
-            spacing: dp(2)
+            spacing: dp(3)
+            pos_hint: {'center_y': 0.5}
 
             Label:
                 text: root.key_name
@@ -199,7 +208,7 @@
                 bold: True
                 color: 0.15, 0.15, 0.15, 1
                 size_hint_y: None
-                height: dp(22)
+                height: dp(20)
                 halign: 'left'
                 text_size: self.width, None
 
@@ -208,7 +217,7 @@
                 font_size: '12sp'
                 color: 0.5, 0.5, 0.5, 1
                 size_hint_y: None
-                height: dp(18)
+                height: dp(16)
                 halign: 'left'
                 text_size: self.width, None
 
@@ -217,7 +226,7 @@
                 font_size: '11sp'
                 color: 0.6, 0.6, 0.6, 1
                 size_hint_y: None
-                height: dp(16)
+                height: dp(14)
                 halign: 'left'
                 text_size: self.width, None
 

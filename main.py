@@ -2,7 +2,8 @@
 
 import os
 
-import config  # noqa: F401 - registers fonts and sets window size
+import app_setup  # noqa: F401 - registers fonts and sets window size
+import config  # noqa: F401 - re-exports for other modules
 
 from kivy.app import App
 from kivy.lang import Builder
@@ -14,6 +15,9 @@ from ui.widgets import SnackBar  # noqa: F401 - needed for kv
 from ui.lock_screen import LockScreen
 from ui.home_screen import HomeScreen
 from ui.platform_screen import PlatformScreen
+from events import bus
+import platform_manager
+import storage
 
 # Load all kv files (use os.path for cross-platform compatibility)
 _BASE = os.path.dirname(os.path.abspath(__file__))
@@ -51,16 +55,114 @@ class KeyManagerApp(App):
         return root
 
     def on_start(self):
-        """Hide Android loading screen as soon as the app is ready."""
+        """Hide Android loading screen and wire up event bus."""
         try:
             from android import hide_loading_screen
             hide_loading_screen()
         except ImportError:
             pass
 
+        # Wire event bus for navigation
+        bus.bind(on_navigate=self._on_navigate)
+        bus.bind(on_key_deleted=self._on_key_changed)
+        bus.bind(on_key_added=self._on_key_changed)
+        bus.bind(on_key_renamed=self._on_key_changed)
+        bus.bind(on_platform_added=self._on_platform_changed)
+        bus.bind(on_platform_deleted=self._on_platform_deleted)
+        bus.bind(on_platform_updated=self._on_platform_changed)
+
+    def _on_navigate(self, _, screen_name, **kwargs):
+        """Handle navigation events from any component."""
+        no_transition = kwargs.pop('no_transition', False)
+
+        if no_transition:
+            from kivy.uix.screenmanager import NoTransition
+            old_transition = self.sm.transition
+            self.sm.transition = NoTransition()
+
+        if screen_name == 'platform':
+            platform_id = kwargs.get('platform_id', '')
+            self.sm.get_screen('platform').load_platform(platform_id)
+            self.sm.current = 'platform'
+        elif screen_name == 'verify_key':
+            platform_id = kwargs.get('platform_id', '')
+            key = kwargs.get('key', '')
+            screen = self.sm.get_screen('platform')
+            if screen.platform_id == platform_id:
+                screen.trigger_check(key)
+        elif screen_name == 'home':
+            self.sm.current = 'home'
+
+        if no_transition:
+            from kivy.clock import Clock
+            Clock.schedule_once(lambda dt: setattr(self.sm, 'transition', old_transition), 0.1)
+
+    def _on_key_changed(self, _, platform_id, **kwargs):
+        """Handle key mutations: perform delete if needed, then refresh and validate."""
+        from kivy.clock import Clock
+
+        key_index = kwargs.get('key_index', None)
+        if key_index is not None:
+            storage.delete_key(platform_id, key_index)
+        screen = self.sm.get_screen('platform')
+        if screen.platform_id == platform_id:
+            screen.refresh_keys()
+            # Auto-validate after adding a key (short delay for UI to settle)
+            if key_index is None:  # Not a delete, so it's add or rename
+                Clock.schedule_once(lambda dt: screen._validate_all_keys(), 0.5)
+
+    def _on_platform_changed(self, _, platform_id):
+        """Rebuild home deck and reload platform screen after platform changes."""
+        platform_manager.refresh()
+        home = self.sm.get_screen('home')
+        home.rebuild_deck()
+        # Reload platform screen if it's showing the changed platform
+        screen = self.sm.get_screen('platform')
+        if screen.platform_id == platform_id:
+            screen.load_platform(platform_id)
+
+    def _on_platform_deleted(self, _, platform_id):
+        """Handle platform deletion: delete data, navigate home, rebuild."""
+        storage.delete_custom_platform(platform_id)
+        platform_manager.refresh()
+        self.sm.current = 'home'
+        home = self.sm.get_screen('home')
+        home.rebuild_deck()
+        self.show_snackbar("Platform deleted", "warning")
+
+    # ----------------------------------------------------------
+    #  Auto-lock on pause/resume
+    # ----------------------------------------------------------
+
+    def on_pause(self):
+        """App going to background — record timestamp."""
+        import time
+        self._pause_time = time.time()
+        return True  # Allow pause (required for Android)
+
+    def on_resume(self):
+        """App returning from background — lock if timeout exceeded."""
+        from kivy.clock import Clock
+
+        def _check_lock(dt):
+            try:
+                import time
+                pause_time = getattr(self, '_pause_time', 0)
+                elapsed = time.time() - pause_time if pause_time else 0
+                # Lock after 60 seconds in background
+                if elapsed > 60 and self.sm and self.sm.current != 'lock':
+                    storage.set_password("")  # Clear cached password
+                    self.sm.current = 'lock'
+            except Exception:
+                pass
+
+        # Defer to next frame to let Kivy fully restore
+        Clock.schedule_once(_check_lock, 0.2)
+
     def show_snackbar(self, message, snack_type="success"):
-        s = SnackBar()
-        s.show(self._root, message, snack_type)
+        if not hasattr(self, '_snackbar'):
+            self._snackbar = SnackBar()
+        self._snackbar.show(self._root, message, snack_type)
 
 
 if __name__ == "__main__":

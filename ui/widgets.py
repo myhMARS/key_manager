@@ -1,5 +1,7 @@
 """Reusable UI widgets: SnackBar, Dot, TouchCard, KeyItem, EmptyKeyState."""
 
+import time
+
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.clipboard import Clipboard
@@ -13,7 +15,7 @@ from kivy.uix.image import Image
 from kivy.uix.label import Label
 from kivy.uix.widget import Widget
 
-import storage
+from theme import PLATFORM_COLORS
 
 
 # ================================================================
@@ -128,7 +130,6 @@ class TouchCard(Widget):
             dy = abs(touch.y - self._touch_start_y)
 
             # Calculate velocity (pixels per second)
-            import time
             elapsed = time.time() - self._touch_start_time
             velocity = abs(dx) / max(elapsed, 0.01)
 
@@ -165,9 +166,8 @@ class TouchCard(Widget):
         pass
 
     def on_view_keys(self):
-        app = App.get_running_app()
-        app.sm.get_screen('platform').load_platform(self.platform_id)
-        app.sm.current = 'platform'
+        from events import bus
+        bus.dispatch('on_navigate', 'platform', platform_id=self.platform_id)
 
 
 # ================================================================
@@ -181,12 +181,14 @@ class KeyItem(Widget):
     key_index = NumericProperty(0)
     platform_id = StringProperty("")
     has_balance = BooleanProperty(False)
+    decrypt_ok = BooleanProperty(True)
+    key_status = StringProperty("unknown")  # "unknown", "valid", "invalid", "checking"
 
     def open_menu(self, button):
         from ui.popups import RenameKeyPopup
+        from events import bus
 
         app = App.get_running_app()
-        screen = app.sm.get_screen('platform')
         dropdown = DropDown()
         dropdown.auto_width = False
         dropdown.width = dp(160)
@@ -207,22 +209,29 @@ class KeyItem(Widget):
             return btn
 
         def do_verify():
-            screen.trigger_check(self.raw_key)
+            if not self.decrypt_ok:
+                App.get_running_app().show_snackbar("Cannot verify: decryption failed", "error")
+                return
+            bus.dispatch('on_navigate', 'verify_key',
+                         platform_id=self.platform_id, key=self.raw_key)
 
         def do_copy():
+            if not self.decrypt_ok:
+                App.get_running_app().show_snackbar("Cannot copy: decryption failed", "error")
+                return
             Clipboard.copy(self.raw_key)
-            app.show_snackbar("Copied to clipboard", "success")
+            App.get_running_app().show_snackbar("Copied to clipboard", "success")
 
         def do_rename():
-            accent = screen.accent_color
             popup = RenameKeyPopup(
-                self.platform_id, self.key_index, self.key_name, accent)
+                self.platform_id, self.key_index, self.key_name,
+                PLATFORM_COLORS.get(self.platform_id, (0.42, 0.42, 0.42, 1)))
             popup.open()
 
         def do_delete():
-            storage.delete_key(self.platform_id, self.key_index)
-            screen.refresh_keys()
-            app.show_snackbar("Key deleted", "warning")
+            bus.dispatch('on_key_deleted', self.platform_id,
+                         key_index=self.key_index)
+            App.get_running_app().show_snackbar("Key deleted", "warning")
 
         dropdown.add_widget(make_btn(
             "Balance" if self.has_balance else "Verify", do_verify))

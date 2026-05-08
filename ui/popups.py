@@ -1,4 +1,4 @@
-"""Popup dialogs: AddKeyPopup, RenameKeyPopup."""
+"""Popup dialogs: AddKeyPopup, RenameKeyPopup, AddPlatform, EditPlatform, ConfirmDelete."""
 
 from kivy.app import App
 from kivy.clock import Clock
@@ -6,6 +6,7 @@ from kivy.properties import ListProperty, NumericProperty, StringProperty
 from kivy.uix.popup import Popup
 
 import storage
+from events import bus
 
 
 class RenameKeyPopup(Popup):
@@ -32,10 +33,8 @@ class RenameKeyPopup(Popup):
             return
         storage.rename_key(self.platform_id, self.key_index, new_name)
         self.dismiss()
-        app = App.get_running_app()
-        screen = app.sm.get_screen('platform')
-        screen.refresh_keys()
-        app.show_snackbar("Key renamed", "success")
+        bus.dispatch('on_key_renamed', self.platform_id)
+        App.get_running_app().show_snackbar("Key renamed", "success")
 
 
 class AddKeyPopup(Popup):
@@ -70,10 +69,8 @@ class AddKeyPopup(Popup):
         storage.add_key(self.platform_id, name, key)
         self.dismiss()
 
-        app = App.get_running_app()
-        screen = app.sm.get_screen('platform')
-        screen.refresh_keys()
-        app.show_snackbar("Key added", "success")
+        bus.dispatch('on_key_added', self.platform_id)
+        App.get_running_app().show_snackbar("Key added", "success")
 
 
 class AddPlatformPopup(Popup):
@@ -96,12 +93,8 @@ class AddPlatformPopup(Popup):
         )
         self.dismiss()
 
-        app = App.get_running_app()
-        app.show_snackbar(f"{name} added", "success")
-
-        # Rebuild home screen deck (this also refreshes platforms)
-        home = app.sm.get_screen('home')
-        home.rebuild_deck()
+        bus.dispatch('on_platform_added', pid)
+        App.get_running_app().show_snackbar(f"{name} added", "success")
 
 
 class ConfirmDeletePlatformPopup(Popup):
@@ -117,9 +110,7 @@ class ConfirmDeletePlatformPopup(Popup):
 
     def on_confirm(self):
         self.dismiss()
-        app = App.get_running_app()
-        screen = app.sm.get_screen('platform')
-        screen._do_delete_platform()
+        bus.dispatch('on_platform_deleted', self.platform_id)
 
 
 class EditPlatformPopup(Popup):
@@ -161,17 +152,5 @@ class EditPlatformPopup(Popup):
         )
         self.dismiss()
 
-        app = App.get_running_app()
-        app.show_snackbar("Platform updated", "success")
-
-        # Refresh
-        from config import refresh_platforms
-        refresh_platforms()
-
-        # Reload current platform screen
-        screen = app.sm.get_screen('platform')
-        screen.load_platform(self.platform_id)
-
-        # Rebuild home deck
-        home = app.sm.get_screen('home')
-        home.rebuild_deck()
+        bus.dispatch('on_platform_updated', self.platform_id)
+        App.get_running_app().show_snackbar("Platform updated", "success")

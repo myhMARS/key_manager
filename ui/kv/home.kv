@@ -10,10 +10,13 @@
             pos: self.pos
             size: self.size
 
+    # Main content
     BoxLayout:
         orientation: 'vertical'
         padding: dp(16), dp(12), dp(16), dp(8)
         spacing: dp(0)
+        pos: root.pos
+        size: root.size
 
         # Title row
         BoxLayout:
@@ -51,6 +54,24 @@
                         size: self.size
                         radius: [dp(10)]
 
+        # Global search bar
+        TextInput:
+            id: global_search
+            hint_text: 'Search all keys...'
+            font_size: '13sp'
+            size_hint_y: None
+            height: dp(36)
+            multiline: False
+            write_tab: False
+            background_normal: ''
+            background_active: ''
+            background_color: 0.92, 0.92, 0.92, 1
+            cursor_color: 0.2, 0.2, 0.2, 1
+            foreground_color: 0.1, 0.1, 0.1, 1
+            hint_text_color: 0.5, 0.5, 0.5, 1
+            padding: [dp(12), dp(9), dp(12), dp(7)]
+            on_text: root.on_global_search(self.text)
+
         # Card area
         RelativeLayout:
             id: card_area
@@ -78,3 +99,32 @@
         Widget:
             size_hint_y: None
             height: dp(4)
+
+    # Floating search results overlay (on top of cards)
+    ScrollView:
+        id: search_results_scroll
+        size_hint: None, None
+        width: root.width - dp(32)
+        height: 0
+        pos: dp(16), root.height - dp(44) - dp(36) - dp(12) - self.height
+        do_scroll_x: False
+
+        BoxLayout:
+            id: search_results
+            orientation: 'vertical'
+            size_hint_y: None
+            height: self.minimum_height
+            spacing: dp(2)
+            padding: dp(4)
+            canvas.before:
+                Color:
+                    rgba: 1, 1, 1, 0.98
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [dp(8)]
+                Color:
+                    rgba: 0.85, 0.85, 0.85, 1
+                Line:
+                    rounded_rectangle: [self.x, self.y, self.width, self.height, dp(8)]
+                    width: 1

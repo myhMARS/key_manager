@@ -34,15 +34,15 @@ orientation = portrait
 fullscreen = 0
 
 # Icon
-icon.filename = icon/logo.png
+icon.filename = assets/icon/logo.png
 
 # Presplash - use a minimal 1x1 pixel image matching app background
 # to avoid the default Kivy "Loading..." screen
 android.presplash_color = #F5F5F5
-presplash.filename = presplash.png
+presplash.filename = assets/presplash.png
 
 # Include files
-source.include_patterns = icon/*,fonts/*,ui/**/*
+source.include_patterns = assets/*,ui/**/*
 
 # Exclude unnecessary files
 source.exclude_dirs = .venv,.idea,__pycache__,.git,.buildozer,bin

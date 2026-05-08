@@ -1,15 +1,15 @@
 """Home screen with stacked card deck and cut animation."""
 
 from kivy.animation import Animation
-from kivy.app import App
 from kivy.clock import Clock
 from kivy.metrics import dp
 from kivy.properties import NumericProperty
 from kivy.uix.screenmanager import Screen
 
 import storage
-import config
-from config import PLATFORM_COLORS, DEFAULT_CUSTOM_COLOR, accent_bg, accent_icon_bg
+import platform_manager
+from theme import PLATFORM_COLORS, DEFAULT_CUSTOM_COLOR, accent_bg, accent_icon_bg
+from events import bus
 from ui.widgets import Dot, TouchCard
 
 
@@ -31,9 +31,9 @@ class HomeScreen(Screen):
             Clock.schedule_once(lambda dt: self._build(), 0)
             self._built = True
         else:
-            old_total = config.TOTAL
-            config.refresh_platforms()
-            if config.TOTAL != old_total or config.TOTAL != len(self._cards):
+            old_total = platform_manager.get_total()
+            platform_manager.refresh()
+            if platform_manager.get_total() != old_total or platform_manager.get_total() != len(self._cards):
                 self.rebuild_deck()
             else:
                 self._update_all_cards()
@@ -42,44 +42,21 @@ class HomeScreen(Screen):
     def _refresh_key_counts(self):
         """Cache key counts for all platforms to avoid repeated file reads."""
         self._key_count_cache = {}
-        for plat in config.PLATFORM_LIST:
+        for plat in platform_manager.get_platform_list():
             self._key_count_cache[plat.id] = storage.key_count(plat.id)
 
     def _build(self):
         # Ensure custom platforms are loaded
-        config.refresh_platforms()
+        platform_manager.refresh()
 
         card_area = self.ids.card_area
 
-        # Show all platforms as stacked cards (not limited to 3)
         self._cards = []
-        for i in range(config.TOTAL):
-            card = TouchCard(size_hint=(None, None), opacity=1)
-            card.bind(on_swipe_left=lambda _: self._go_next())
-            card.bind(on_swipe_right=lambda _: self._go_prev())
-            card.bind(on_snap_back=lambda _: self._snap_back())
-
-            def on_tap(_, relative_x, c=card):
-                if c != self._cards[-1]:
-                    return
-                w = c.width
-                if w <= 0:
-                    return
-                if relative_x < w * 0.25:
-                    self._go_prev()
-                elif relative_x > w * 0.75:
-                    self._go_next()
-                else:
-                    plat = config.PLATFORM_LIST[self.current_index]
-                    app = App.get_running_app()
-                    app.sm.get_screen('platform').load_platform(plat.id)
-                    app.sm.current = 'platform'
-
-            card.bind(on_tap_card=on_tap)
+        for i in range(platform_manager.get_total()):
+            card = self._create_card()
             self._cards.append(card)
             card_area.add_widget(card)
 
-        # Build dots
         self._rebuild_dots()
 
         Clock.schedule_once(lambda dt: self._layout_deck(), 0)
@@ -88,12 +65,12 @@ class HomeScreen(Screen):
 
     def rebuild_deck(self):
         """Rebuild the entire deck after platforms change."""
-        config.refresh_platforms()
+        platform_manager.refresh()
         self._refresh_key_counts()
 
         # Clamp current_index to new platform at the end
-        if config.TOTAL > 0:
-            self.current_index = config.TOTAL - 1
+        if platform_manager.get_total() > 0:
+            self.current_index = platform_manager.get_total() - 1
         else:
             self.current_index = 0
 
@@ -104,39 +81,42 @@ class HomeScreen(Screen):
         self._cards.clear()
 
         # Recreate all cards
-        for i in range(config.TOTAL):
-            card = TouchCard(size_hint=(None, None), opacity=1)
-            card.bind(on_swipe_left=lambda _: self._go_next())
-            card.bind(on_swipe_right=lambda _: self._go_prev())
-            card.bind(on_snap_back=lambda _: self._snap_back())
-
-            def on_tap(_, relative_x, c=card):
-                if c != self._cards[-1]:
-                    return
-                w = c.width
-                if w <= 0:
-                    return
-                if relative_x < w * 0.25:
-                    self._go_prev()
-                elif relative_x > w * 0.75:
-                    self._go_next()
-                else:
-                    plat = config.PLATFORM_LIST[self.current_index]
-                    app = App.get_running_app()
-                    app.sm.get_screen('platform').load_platform(plat.id)
-                    app.sm.current = 'platform'
-
-            card.bind(on_tap_card=on_tap)
+        for i in range(platform_manager.get_total()):
+            card = self._create_card()
             self._cards.append(card)
             card_area.add_widget(card)
 
         self._rebuild_dots()
         self._layout_deck()
 
+    def _create_card(self) -> TouchCard:
+        """Create a single TouchCard with all event bindings."""
+        card = TouchCard(size_hint=(None, None), opacity=1)
+        card.bind(on_swipe_left=lambda _: self._go_next())
+        card.bind(on_swipe_right=lambda _: self._go_prev())
+        card.bind(on_snap_back=lambda _: self._snap_back())
+
+        def on_tap(_, relative_x, c=card):
+            if c != self._cards[-1]:
+                return
+            w = c.width
+            if w <= 0:
+                return
+            if relative_x < w * 0.25:
+                self._go_prev()
+            elif relative_x > w * 0.75:
+                self._go_next()
+            else:
+                plat = platform_manager.get_platform_list()[self.current_index]
+                bus.dispatch('on_navigate', 'platform', platform_id=plat.id)
+
+        card.bind(on_tap_card=on_tap)
+        return card
+
     def _rebuild_dots(self):
         dots = self.ids.dots_container
         dots.clear_widgets()
-        for i in range(config.TOTAL):
+        for i in range(platform_manager.get_total()):
             dot = Dot()
             dot.dot_color = (
                 [0.27, 0.27, 0.27, 1] if i == self.current_index
@@ -176,7 +156,7 @@ class HomeScreen(Screen):
         card_w = area_w * 0.88
         card_h = area_h * 0.90
 
-        total = config.TOTAL
+        total = platform_manager.get_total()
         # Dynamic peek: shrink as card count grows, min dp(4) per layer
         if total <= 3:
             peek_offset = dp(12)
@@ -207,7 +187,7 @@ class HomeScreen(Screen):
 
     def _update_all_cards(self):
         """Top card = current_index, below = next platforms."""
-        total = config.TOTAL
+        total = platform_manager.get_total()
         num_cards = len(self._cards)
         for i, card in enumerate(self._cards):
             depth = num_cards - 1 - i
@@ -219,7 +199,7 @@ class HomeScreen(Screen):
             self._set_card_content(self._cards[-1], self.current_index)
 
     def _set_card_content(self, card, idx):
-        plat = config.PLATFORM_LIST[idx]
+        plat = platform_manager.get_platform_list()[idx]
         accent = PLATFORM_COLORS.get(plat.id, DEFAULT_CUSTOM_COLOR)
         count = self._key_count_cache.get(plat.id, 0)
 
@@ -267,6 +247,88 @@ class HomeScreen(Screen):
         popup.open()
 
     # ----------------------------------------------------------
+    #  Global search
+    # ----------------------------------------------------------
+
+    def on_global_search(self, text):
+        """Debounced global search — wait 300ms after last keystroke."""
+        if hasattr(self, '_search_event') and self._search_event:
+            self._search_event.cancel()
+        self._search_event = Clock.schedule_once(
+            lambda dt: self._do_global_search(text), 0.3)
+
+    def _do_global_search(self, text):
+        """Search all key names across all platforms (background thread)."""
+        import threading
+
+        query = text.strip().lower()
+        results_scroll = self.ids.search_results_scroll
+
+        if not query:
+            self.ids.search_results.clear_widgets()
+            results_scroll.height = 0
+            return
+
+        self._search_gen = getattr(self, '_search_gen', 0) + 1
+        gen = self._search_gen
+
+        def _search():
+            matches = storage.search_key_names(query)
+
+            def _show(dt):
+                if self._search_gen != gen:
+                    return
+                self._render_search_results(matches)
+
+            Clock.schedule_once(_show, 0)
+
+        threading.Thread(target=_search, daemon=True).start()
+
+    def _render_search_results(self, matches):
+        """Render search results on the main thread."""
+        from kivy.uix.button import Button
+        from kivy.metrics import dp as dp_fn
+
+        results_container = self.ids.search_results
+        results_scroll = self.ids.search_results_scroll
+        results_container.clear_widgets()
+
+        if not matches:
+            results_scroll.height = 0
+            return
+
+        # Build platform name lookup
+        plat_names = {p.id: p.name for p in platform_manager.get_platform_list()}
+
+        for pid, key_name in matches:
+            plat_name = plat_names.get(pid, pid)
+            btn = Button(
+                text=f"{key_name}  -  {plat_name}",
+                size_hint_y=None,
+                height=dp_fn(40),
+                font_size='13sp',
+                color=(0.15, 0.15, 0.15, 1),
+                background_normal='',
+                background_down='',
+                background_color=(0.97, 0.97, 0.97, 1),
+                halign='left',
+                valign='middle',
+            )
+            btn.bind(size=lambda w, s: setattr(w, 'text_size', (s[0] - dp_fn(16), s[1])))
+            btn.platform_id = pid
+            btn.bind(on_release=lambda b: self._search_result_tap(b.platform_id))
+            results_container.add_widget(btn)
+
+        max_visible = 5
+        row_height = dp_fn(42)
+        results_scroll.height = min(len(matches), max_visible) * row_height + dp_fn(8)
+
+    def _search_result_tap(self, platform_id):
+        """Navigate to platform from search result."""
+        self.ids.global_search.text = ""
+        bus.dispatch('on_navigate', 'platform', platform_id=platform_id)
+
+    # ----------------------------------------------------------
     #  Snap back (drag cancelled)
     # ----------------------------------------------------------
 
@@ -293,11 +355,11 @@ class HomeScreen(Screen):
             self._animate_prev(idx)
 
     def _go_prev(self):
-        new_idx = (self.current_index - 1) % config.TOTAL
+        new_idx = (self.current_index - 1) % platform_manager.get_total()
         self._animate_prev(new_idx)
 
     def _go_next(self):
-        new_idx = (self.current_index + 1) % config.TOTAL
+        new_idx = (self.current_index + 1) % platform_manager.get_total()
         self._animate_next(new_idx)
 
     # ----------------------------------------------------------
@@ -313,7 +375,7 @@ class HomeScreen(Screen):
         top_card = self._cards[-1]
         area = self.ids.card_area
         area_w = area.width
-        total = config.TOTAL
+        total = platform_manager.get_total()
 
         # Pre-set bottom cards to show correct content during animation
         num_cards = len(self._cards)

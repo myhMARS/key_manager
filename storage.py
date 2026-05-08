@@ -88,15 +88,22 @@ def check_password(password: str) -> bool:
     return verify_password(password, stored_hash)
 
 
+class DecryptionError(Exception):
+    """Raised when a key cannot be decrypted."""
+    pass
+
+
 def get_keys(platform_id: str) -> list:
+    """Get decrypted keys. Each key dict has 'key' and 'decrypt_ok' fields."""
     cfg = read_config()
     keys = cfg.get("platforms", {}).get(platform_id, {}).get("keys", [])
-    # Decrypt keys on read
     for k in keys:
         try:
             k["key"] = decrypt_key(k["key"], _password)
+            k["decrypt_ok"] = True
         except (ValueError, Exception):
-            k["key"] = "*** decryption failed ***"
+            k["key"] = ""
+            k["decrypt_ok"] = False
     return keys
 
 
@@ -201,3 +208,18 @@ def update_custom_platform(platform_id: str, name: str = None, base_url: str = N
                 p["auth_header"] = auth_header
             break
     write_config(cfg)
+
+
+def search_key_names(query: str) -> list:
+    """Search key names across all platforms without decrypting keys.
+    Returns [(platform_id, key_name), ...] — fast, no crypto involved."""
+    query = query.strip().lower()
+    if not query:
+        return []
+    cfg = read_config()
+    results = []
+    for pid, pdata in cfg.get("platforms", {}).items():
+        for k in pdata.get("keys", []):
+            if query in k.get("name", "").lower():
+                results.append((pid, k["name"]))
+    return results
