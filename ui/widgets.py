@@ -73,10 +73,13 @@ class TouchCard(Widget):
         super().__init__(**kwargs)
         self._touch_start_x = 0
         self._touch_start_y = 0
+        self._touch_start_pos = (0, 0)
+        self._touch_start_time = 0
         self._swiping = False
         self.register_event_type('on_swipe_left')
         self.register_event_type('on_swipe_right')
         self.register_event_type('on_tap_card')
+        self.register_event_type('on_snap_back')
 
     def on_icon_source(self, _, value):
         if value:
@@ -98,6 +101,8 @@ class TouchCard(Widget):
         if self.collide_point(*touch.pos):
             self._touch_start_x = touch.x
             self._touch_start_y = touch.y
+            self._touch_start_pos = (self.x, self.y)
+            self._touch_start_time = touch.time_start
             self._swiping = False
             touch.grab(self)
             return True
@@ -105,8 +110,15 @@ class TouchCard(Widget):
 
     def on_touch_move(self, touch):
         if touch.grab_current is self:
-            if abs(touch.x - self._touch_start_x) > dp(10):
+            dx = touch.x - self._touch_start_x
+            if abs(dx) > dp(10):
                 self._swiping = True
+            if self._swiping:
+                # Move card with finger
+                self.x = self._touch_start_pos[0] + dx
+                # Fade opacity based on drag distance
+                progress = min(abs(dx) / dp(150), 1.0)
+                self.opacity = 1.0 - progress * 0.5
             return True
         return super().on_touch_move(touch)
 
@@ -115,12 +127,24 @@ class TouchCard(Widget):
             dx = touch.x - self._touch_start_x
             dy = abs(touch.y - self._touch_start_y)
 
-            if abs(dx) > dp(50) and abs(dx) > dy:
+            # Calculate velocity (pixels per second)
+            import time
+            elapsed = time.time() - self._touch_start_time
+            velocity = abs(dx) / max(elapsed, 0.01)
+
+            # Trigger swipe if: distance > 30dp OR velocity > 400px/s (with min 15dp move)
+            is_swipe = (abs(dx) > dp(30) and abs(dx) > dy) or \
+                       (velocity > dp(400) and abs(dx) > dp(15) and abs(dx) > dy)
+
+            if is_swipe:
                 if dx < 0:
                     self.dispatch('on_swipe_left')
                 else:
                     self.dispatch('on_swipe_right')
-            elif abs(dx) <= dp(10) or abs(dx) <= dy:
+            elif self._swiping:
+                # Didn't swipe far/fast enough, snap back
+                self.dispatch('on_snap_back')
+            else:
                 relative_x = touch.x - self.x
                 self.dispatch('on_tap_card', relative_x)
 
@@ -132,6 +156,9 @@ class TouchCard(Widget):
         pass
 
     def on_swipe_right(self):
+        pass
+
+    def on_snap_back(self):
         pass
 
     def on_tap_card(self, x):

@@ -1,11 +1,25 @@
-"""Persistent storage for API keys using JSON file with encryption."""
+"""Persistent storage for API keys with password-based encryption."""
 
 import json
 import os
 from datetime import datetime
 from pathlib import Path
 
-from crypto import encrypt_key, decrypt_key
+from crypto import encrypt_key, decrypt_key, hash_password, verify_password
+
+
+# Module-level password cache (set after unlock)
+_password: str = ""
+
+
+def set_password(password: str):
+    """Set the active password for encrypt/decrypt operations."""
+    global _password
+    _password = password
+
+
+def get_password() -> str:
+    return _password
 
 
 def _get_data_dir() -> Path:
@@ -52,12 +66,37 @@ def write_config(data: dict):
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def is_password_set() -> bool:
+    """Check if a master password has been configured."""
+    cfg = read_config()
+    return bool(cfg.get("password_hash"))
+
+
+def save_password_hash(password: str):
+    """Store the password hash in config (called on first setup)."""
+    cfg = read_config()
+    cfg["password_hash"] = hash_password(password)
+    write_config(cfg)
+
+
+def check_password(password: str) -> bool:
+    """Verify password against stored hash."""
+    cfg = read_config()
+    stored_hash = cfg.get("password_hash", "")
+    if not stored_hash:
+        return False
+    return verify_password(password, stored_hash)
+
+
 def get_keys(platform_id: str) -> list:
     cfg = read_config()
     keys = cfg.get("platforms", {}).get(platform_id, {}).get("keys", [])
     # Decrypt keys on read
     for k in keys:
-        k["key"] = decrypt_key(k["key"])
+        try:
+            k["key"] = decrypt_key(k["key"], _password)
+        except (ValueError, Exception):
+            k["key"] = "*** decryption failed ***"
     return keys
 
 
@@ -67,7 +106,7 @@ def add_key(platform_id: str, name: str, key: str):
     cfg["platforms"][platform_id].setdefault("keys", [])
     cfg["platforms"][platform_id]["keys"].append({
         "name": name,
-        "key": encrypt_key(key),
+        "key": encrypt_key(key, _password),
         "created_at": datetime.now().strftime("%Y-%m-%d"),
     })
     write_config(cfg)
@@ -82,7 +121,9 @@ def delete_key(platform_id: str, index: int):
 
 
 def key_count(platform_id: str) -> int:
-    return len(get_keys(platform_id))
+    """Count keys without decrypting them (fast)."""
+    cfg = read_config()
+    return len(cfg.get("platforms", {}).get(platform_id, {}).get("keys", []))
 
 
 def rename_key(platform_id: str, index: int, new_name: str):

@@ -13,11 +13,11 @@ source.include_exts = py,png,jpg,kv,ttf,ttc,json
 # Entry point
 entrypoint = main.py
 
-# Requirements - do NOT pin python3 version, let p4a choose its default
-requirements = python3,kivy,pillow,certifi,httpx,httpcore,idna,sniffio,anyio,h11
+# Requirements - pin python3 to let p4a choose, pure python deps listed
+requirements = python3,kivy,pillow,certifi,httpx,httpcore,idna,sniffio,anyio,h11,pyjnius,android
 
 # Android permissions
-android.permissions = INTERNET
+android.permissions = INTERNET,USE_BIOMETRIC,USE_FINGERPRINT
 
 # Android API levels
 android.minapi = 21
@@ -53,6 +53,7 @@ log_level = 2
 
 # Android specific
 android.accept_sdk_license = True
+android.enable_androidx = True
 
 # Pin p4a to a known stable version that supports Python 3.11
 p4a.version = 2024.01.21

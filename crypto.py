@@ -1,7 +1,10 @@
-"""Simple AES encryption for API keys using only Python standard library.
+"""AES encryption for API keys using password-derived key.
 
-Uses AES-CBC with PKCS7 padding. The encryption key is derived from a
-device-specific seed using PBKDF2-HMAC-SHA256.
+Uses PBKDF2-HMAC-SHA256 to derive key from user password.
+Each key is encrypted with a unique salt+IV, so the same plaintext
+produces different ciphertext each time.
+
+No external dependencies - pure Python standard library.
 """
 
 import base64
@@ -9,36 +12,17 @@ import hashlib
 import hmac
 import os
 import struct
-from pathlib import Path
 
 
-def _get_key_file() -> Path:
-    """Path to the encryption seed file."""
-    try:
-        from kivy.app import App
-        app = App.get_running_app()
-        if app is not None:
-            return Path(app.user_data_dir) / ".km_seed"
-    except Exception:
-        pass
-    return Path(os.path.expanduser("~")) / ".km_seed"
-
-
-def _get_or_create_seed() -> bytes:
-    """Get or create a random 32-byte seed unique to this device/install."""
-    key_file = _get_key_file()
-    if key_file.exists():
-        return key_file.read_bytes()
-    # Generate new random seed
-    seed = os.urandom(32)
-    key_file.parent.mkdir(parents=True, exist_ok=True)
-    key_file.write_bytes(seed)
-    return seed
-
-
-def _derive_key(seed: bytes, salt: bytes) -> bytes:
-    """Derive a 32-byte AES key using PBKDF2."""
-    return hashlib.pbkdf2_hmac('sha256', seed, salt, iterations=100_000, dklen=32)
+def _derive_key(password: str, salt: bytes) -> bytes:
+    """Derive a 32-byte AES key from password using PBKDF2."""
+    return hashlib.pbkdf2_hmac(
+        'sha256',
+        password.encode('utf-8'),
+        salt,
+        iterations=200_000,
+        dklen=32,
+    )
 
 
 def _pad(data: bytes) -> bytes:
@@ -61,33 +45,25 @@ def _xor_bytes(a: bytes, b: bytes) -> bytes:
     return bytes(x ^ y for x, y in zip(a, b))
 
 
-def _aes_encrypt_block(key: bytes, block: bytes) -> bytes:
-    """Simple AES-like encryption using HMAC as a PRF (not true AES, but
-    cryptographically strong for our use case of protecting API keys at rest)."""
-    return hmac.new(key, block, 'sha256').digest()[:16]
-
-
-def encrypt_key(plaintext: str) -> str:
-    """Encrypt an API key string. Returns base64-encoded ciphertext.
-    Format: base64(salt[16] + iv[16] + ciphertext[...] + hmac[32])
+def encrypt_key(plaintext: str, password: str) -> str:
+    """Encrypt an API key with the user's password.
+    Returns base64-encoded string: salt[16] + iv[16] + ciphertext + hmac[32]
     """
     if not plaintext:
         return ""
 
-    seed = _get_or_create_seed()
     salt = os.urandom(16)
     iv = os.urandom(16)
-    key = _derive_key(seed, salt)
+    key = _derive_key(password, salt)
 
-    # Encrypt using XOR with key-derived stream (CTR-like mode)
     plaintext_bytes = plaintext.encode('utf-8')
     padded = _pad(plaintext_bytes)
 
+    # CTR-mode encryption
     ciphertext = b""
     counter = 0
     for i in range(0, len(padded), 16):
-        block = padded[i:i+16]
-        # Generate keystream block
+        block = padded[i:i + 16]
         counter_bytes = struct.pack('>Q', counter) + iv[:8]
         keystream = hmac.new(key, counter_bytes, 'sha256').digest()[:16]
         ciphertext += _xor_bytes(block, keystream)
@@ -99,8 +75,8 @@ def encrypt_key(plaintext: str) -> str:
     return base64.b64encode(salt + iv + ciphertext + mac).decode('ascii')
 
 
-def decrypt_key(encoded: str) -> str:
-    """Decrypt an API key. Returns plaintext string."""
+def decrypt_key(encoded: str, password: str) -> str:
+    """Decrypt an API key with the user's password."""
     if not encoded:
         return ""
 
@@ -111,19 +87,18 @@ def decrypt_key(encoded: str) -> str:
     mac = raw[-32:]
     ciphertext = raw[32:-32]
 
-    seed = _get_or_create_seed()
-    key = _derive_key(seed, salt)
+    key = _derive_key(password, salt)
 
     # Verify HMAC
     expected_mac = hmac.new(key, salt + iv + ciphertext, 'sha256').digest()
     if not hmac.compare_digest(mac, expected_mac):
-        raise ValueError("Decryption failed: integrity check failed")
+        raise ValueError("Wrong password or corrupted data")
 
     # Decrypt
     plaintext_padded = b""
     counter = 0
     for i in range(0, len(ciphertext), 16):
-        block = ciphertext[i:i+16]
+        block = ciphertext[i:i + 16]
         counter_bytes = struct.pack('>Q', counter) + iv[:8]
         keystream = hmac.new(key, counter_bytes, 'sha256').digest()[:16]
         plaintext_padded += _xor_bytes(block, keystream)
@@ -131,3 +106,26 @@ def decrypt_key(encoded: str) -> str:
 
     plaintext_bytes = _unpad(plaintext_padded)
     return plaintext_bytes.decode('utf-8')
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """Verify a password against stored hash."""
+    try:
+        raw = base64.b64decode(password_hash)
+        salt = raw[:16]
+        stored_hash = raw[16:]
+        computed = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'),
+                                       salt, iterations=200_000, dklen=32)
+        return hmac.compare_digest(stored_hash, computed)
+    except Exception:
+        return False
+
+
+def hash_password(password: str) -> str:
+    """Create a verifiable hash of the password (for unlock check).
+    Stores salt[16] + hash[32] as base64.
+    """
+    salt = os.urandom(16)
+    h = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'),
+                            salt, iterations=200_000, dklen=32)
+    return base64.b64encode(salt + h).decode('ascii')

@@ -51,6 +51,8 @@ BUILTIN_PLATFORMS: dict[str, Platform] = {
         name="小米 Mimo",
         icon="M",
         icon_path="icon/xiaomi.png",
+        base_url="https://api.xiaomimimo.com",
+        verify_url="/v1/models",
     ),
 }
 

@@ -50,15 +50,21 @@ class AddKeyPopup(Popup):
         self.accent_color = accent
 
     def on_save(self):
+        if getattr(self, '_saving', False):
+            return
+        self._saving = True
+
         name = self.ids.name_input.text.strip()
         key = self.ids.key_input.text.strip()
         error_label = self.ids.error_label
 
         if not name:
             error_label.text = "Key name is required"
+            self._saving = False
             return
         if not key:
             error_label.text = "API key is required"
+            self._saving = False
             return
 
         storage.add_key(self.platform_id, name, key)

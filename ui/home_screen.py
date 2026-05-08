@@ -21,13 +21,16 @@ class HomeScreen(Screen):
         self._built = False
         self._animating = False
         self._cards = []
+        self._key_count_cache = {}  # platform_id -> count
 
     def on_enter(self, *args):
+        # Refresh key count cache on every entry
+        self._refresh_key_counts()
+
         if not self._built:
             Clock.schedule_once(lambda dt: self._build(), 0)
             self._built = True
         else:
-            # Refresh platforms in case they changed while on another screen
             old_total = config.TOTAL
             config.refresh_platforms()
             if config.TOTAL != old_total or config.TOTAL != len(self._cards):
@@ -35,6 +38,12 @@ class HomeScreen(Screen):
             else:
                 self._update_all_cards()
                 self._update_dots()
+
+    def _refresh_key_counts(self):
+        """Cache key counts for all platforms to avoid repeated file reads."""
+        self._key_count_cache = {}
+        for plat in config.PLATFORM_LIST:
+            self._key_count_cache[plat.id] = storage.key_count(plat.id)
 
     def _build(self):
         # Ensure custom platforms are loaded
@@ -48,6 +57,7 @@ class HomeScreen(Screen):
             card = TouchCard(size_hint=(None, None), opacity=1)
             card.bind(on_swipe_left=lambda _: self._go_next())
             card.bind(on_swipe_right=lambda _: self._go_prev())
+            card.bind(on_snap_back=lambda _: self._snap_back())
 
             def on_tap(_, relative_x, c=card):
                 if c != self._cards[-1]:
@@ -72,13 +82,14 @@ class HomeScreen(Screen):
         # Build dots
         self._rebuild_dots()
 
-        Clock.schedule_once(lambda dt: self._layout_deck(), 0.05)
+        Clock.schedule_once(lambda dt: self._layout_deck(), 0)
         card_area.bind(size=lambda *a: self._layout_deck())
         card_area.bind(pos=lambda *a: self._layout_deck())
 
     def rebuild_deck(self):
         """Rebuild the entire deck after platforms change."""
         config.refresh_platforms()
+        self._refresh_key_counts()
 
         # Clamp current_index to new platform at the end
         if config.TOTAL > 0:
@@ -97,6 +108,7 @@ class HomeScreen(Screen):
             card = TouchCard(size_hint=(None, None), opacity=1)
             card.bind(on_swipe_left=lambda _: self._go_next())
             card.bind(on_swipe_right=lambda _: self._go_prev())
+            card.bind(on_snap_back=lambda _: self._snap_back())
 
             def on_tap(_, relative_x, c=card):
                 if c != self._cards[-1]:
@@ -209,7 +221,7 @@ class HomeScreen(Screen):
     def _set_card_content(self, card, idx):
         plat = config.PLATFORM_LIST[idx]
         accent = PLATFORM_COLORS.get(plat.id, DEFAULT_CUSTOM_COLOR)
-        count = storage.key_count(plat.id)
+        count = self._key_count_cache.get(plat.id, 0)
 
         card.platform_name = plat.name
         card.key_count_text = f"{count} key{'s' if count != 1 else ''}"
@@ -253,6 +265,20 @@ class HomeScreen(Screen):
         from ui.popups import AddPlatformPopup
         popup = AddPlatformPopup()
         popup.open()
+
+    # ----------------------------------------------------------
+    #  Snap back (drag cancelled)
+    # ----------------------------------------------------------
+
+    def _snap_back(self):
+        """Animate top card back to its deck position."""
+        if not self._cards:
+            return
+        top_card = self._cards[-1]
+        area = self.ids.card_area
+        x, y, w, h, opacity = self._get_deck_pos(0, area.width, area.height)
+        anim = Animation(x=x, y=y, opacity=opacity, duration=0.2, t='out_cubic')
+        anim.start(top_card)
 
     # ----------------------------------------------------------
     #  Navigation
