@@ -106,6 +106,7 @@ class PlatformScreen(Screen):
             name=self._plat.name,
             base_url=self._plat.base_url,
             verify_url=self._plat.verify_url,
+            balance_url=self._plat.balance_url,
             accent_color=self.accent_color,
         )
         popup.open()

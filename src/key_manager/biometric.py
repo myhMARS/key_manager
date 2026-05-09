@@ -53,7 +53,7 @@ def store_password_for_biometric(password: str):
     try:
         encrypted = _encrypt_for_storage(password)
         prefs = _get_prefs()
-        editor = prefs.edit()
+        editor = prefs.edit()   
         editor.putString("enc_password", encrypted)
         editor.apply()
     except Exception:

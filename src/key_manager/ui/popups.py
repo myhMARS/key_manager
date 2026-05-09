@@ -80,6 +80,7 @@ class AddPlatformPopup(Popup):
         name = self.ids.platform_name_input.text.strip()
         base_url = self.ids.base_url_input.text.strip()
         verify_url = self.ids.verify_url_input.text.strip()
+        balance_url = self.ids.balance_url_input.text.strip()
         error_label = self.ids.platform_error_label
 
         if not name:
@@ -90,6 +91,7 @@ class AddPlatformPopup(Popup):
             name=name,
             base_url=base_url,
             verify_url=verify_url,
+            balance_url=balance_url,
         )
         self.dismiss()
 
@@ -118,14 +120,16 @@ class EditPlatformPopup(Popup):
     platform_name = StringProperty("")
     base_url = StringProperty("")
     verify_url = StringProperty("")
+    balance_url = StringProperty("")
     accent_color = ListProperty([0.4, 0.4, 0.4, 1])
 
-    def __init__(self, platform_id, name, base_url, verify_url, accent_color, **kwargs):
+    def __init__(self, platform_id, name, base_url, verify_url, balance_url, accent_color, **kwargs):
         super().__init__(**kwargs)
         self.platform_id = platform_id
         self.platform_name = name
         self.base_url = base_url
         self.verify_url = verify_url
+        self.balance_url = balance_url
         self.accent_color = accent_color
         Clock.schedule_once(lambda dt: self._init_inputs(), 0)
 
@@ -133,11 +137,13 @@ class EditPlatformPopup(Popup):
         self.ids.edit_name_input.text = self.platform_name
         self.ids.edit_base_url_input.text = self.base_url
         self.ids.edit_verify_url_input.text = self.verify_url
+        self.ids.edit_balance_url_input.text = self.balance_url
 
     def on_save(self):
         name = self.ids.edit_name_input.text.strip()
         base_url = self.ids.edit_base_url_input.text.strip()
         verify_url = self.ids.edit_verify_url_input.text.strip()
+        balance_url = self.ids.edit_balance_url_input.text.strip()
         error_label = self.ids.edit_error_label
 
         if not name:
@@ -149,6 +155,7 @@ class EditPlatformPopup(Popup):
             name=name,
             base_url=base_url,
             verify_url=verify_url,
+            balance_url=balance_url,
         )
         self.dismiss()
 

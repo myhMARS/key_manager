@@ -228,7 +228,7 @@
     title: ''
     separator_height: 0
     size_hint: 0.9, None
-    height: dp(320)
+    height: dp(420)
     auto_dismiss: True
     background: ''
     background_color: 0, 0, 0, 0
@@ -238,7 +238,9 @@
         orientation: 'vertical'
         padding: dp(20)
         spacing: dp(12)
-        size_hint: 1, 1
+        size_hint_x: 1
+        size_hint_y: None
+        height: dp(372)
         canvas.before:
             Color:
                 rgba: 1, 1, 1, 1
@@ -292,6 +294,22 @@
         TextInput:
             id: verify_url_input
             hint_text: 'Verify Path (e.g. /v1/models)'
+            font_size: '14sp'
+            size_hint_y: None
+            height: dp(44)
+            multiline: False
+            write_tab: False
+            background_normal: ''
+            background_active: ''
+            background_color: 0.96, 0.96, 0.96, 1
+            cursor_color: 0.3, 0.3, 0.3, 1
+            foreground_color: 0.1, 0.1, 0.1, 1
+            hint_text_color: 0.6, 0.6, 0.6, 1
+            padding: [dp(12), dp(12), dp(12), dp(10)]
+
+        TextInput:
+            id: balance_url_input
+            hint_text: 'Balance Path (e.g. /v1/users/me/balance)'
             font_size: '14sp'
             size_hint_y: None
             height: dp(44)
@@ -470,7 +488,7 @@
     title: ''
     separator_height: 0
     size_hint: 0.9, None
-    height: dp(320)
+    height: dp(420)
     auto_dismiss: True
     background: ''
     background_color: 0, 0, 0, 0
@@ -480,7 +498,9 @@
         orientation: 'vertical'
         padding: dp(20)
         spacing: dp(12)
-        size_hint: 1, 1
+        size_hint_x: 1
+        size_hint_y: None
+        height: dp(372)
         canvas.before:
             Color:
                 rgba: 1, 1, 1, 1
@@ -534,6 +554,22 @@
         TextInput:
             id: edit_verify_url_input
             hint_text: 'Verify Path'
+            font_size: '14sp'
+            size_hint_y: None
+            height: dp(44)
+            multiline: False
+            write_tab: False
+            background_normal: ''
+            background_active: ''
+            background_color: 0.96, 0.96, 0.96, 1
+            cursor_color: 0.3, 0.3, 0.3, 1
+            foreground_color: 0.1, 0.1, 0.1, 1
+            hint_text_color: 0.6, 0.6, 0.6, 1
+            padding: [dp(12), dp(12), dp(12), dp(10)]
+
+        TextInput:
+            id: edit_balance_url_input
+            hint_text: 'Balance Path (e.g. /v1/users/me/balance)'
             font_size: '14sp'
             size_hint_y: None
             height: dp(44)
