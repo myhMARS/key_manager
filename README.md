@@ -47,7 +47,8 @@ Key Manager 用统一的界面管理所有 AI API Key，加密存储，一键查
 
 | 平台 | 余额查询 | Key 校验 |
 |------|:---:|:---:|
-| DeepSeek | &#10003; | &mdash; |
+| DeepSeek | &#10003; | &#10003; |
+| Moonshot | &#10003; | &#10003; |
 | OpenAI | &mdash; | &#10003; |
 | 阿里百炼 | &mdash; | &#10003; |
 | 小米 MiMo | &mdash; | &#10003; |
@@ -72,7 +73,7 @@ Key Manager 用统一的界面管理所有 AI API Key，加密存储，一键查
 
 ```bash
 # 克隆仓库
-git clone https://github.com/your-username/key-manager.git
+git clone https://github.com/myhMARS/key-manager.git
 cd key-manager
 
 # 安装依赖
@@ -99,35 +100,39 @@ buildozer android debug
 
 构建产物位于 `bin/` 目录。APK 目标架构 arm64-v8a，最低 Android API 21。
 
-首次构建建议先阅读 [Buildozer 快速入门](https://buildozer.readthedocs.io/en/latest/quickstart.html) 安装系统依赖（SDK、NDK 等）。
+首次构建建议先阅读 [Buildozer 快速入门](https://buildozer.readthedocs.io/en/latest/quickstart/) 安装系统依赖（SDK、NDK 等）。
 
 ## 项目结构
 
 ```
 key-manager/
-├── main.py                 # 应用入口，ScreenManager 导航，事件总线
-├── app_setup.py            # 字体注册、窗口尺寸初始化
-├── config.py               # 向后兼容导出
-├── theme.py                # 平台颜色主题、色调工具
-├── platforms.py            # 内置 + 自定义平台定义
-├── platform_manager.py     # 平台列表懒加载管理
-├── crypto.py               # 加密模块（纯标准库实现）
-├── storage.py              # JSON 持久化存储与密码缓存
-├── biometric.py            # Android 生物认证封装 (JavaBridge)
-├── events.py               # 事件总线，模块间解耦通信
-├── ui/
-│   ├── lock_screen.py      # 密码设置 / 解锁 / 生物认证
-│   ├── home_screen.py      # 首页卡片堆叠 + 滑动动画
-│   ├── platform_screen.py  # 平台详情、Key 列表、余额查询
-│   ├── widgets.py          # 可复用组件 (TouchCard, KeyItem, SnackBar)
-│   ├── popups.py           # 弹窗 (添加 Key、管理平台、确认删除)
-│   └── kv/                 # Kivy 布局文件
+├── main.py                         # 应用入口
+├── src/
+│   └── key_manager/
+│       ├── app_setup.py            # 字体注册、窗口尺寸初始化
+│       ├── biometric.py            # Android 生物认证封装
+│       ├── core/
+│       │   ├── config.py           # 向后兼容导出
+│       │   ├── crypto.py           # 加密模块（纯标准库实现）
+│       │   ├── events.py           # 事件总线，模块间解耦通信
+│       │   ├── platform_manager.py # 平台列表懒加载管理
+│       │   ├── platforms.py        # 内置 + 自定义平台定义、余额解析器
+│       │   ├── storage.py          # JSON 持久化存储与密码缓存
+│       │   └── theme.py            # 平台颜色主题
+│       └── ui/
+│           ├── home_screen.py      # 首页卡片堆叠 + 滑动动画
+│           ├── lock_screen.py      # 密码设置 / 解锁 / 生物认证
+│           ├── platform_screen.py  # 平台详情、Key 列表、余额查询
+│           ├── widgets.py          # 可复用组件
+│           ├── popups.py           # 弹窗
+│           └── kv/                 # Kivy 布局文件
 ├── assets/
-│   ├── icon/               # 平台图标 + 应用 Logo
-│   ├── fonts/              # Noto Sans SC 中文字体
-│   └── presplash.png       # Android 启动屏
-├── pyproject.toml          # 项目元数据与依赖声明
-├── buildozer.spec          # Android 构建配置
+│   ├── icon/                       # 平台图标 + 应用 Logo
+│   ├── fonts/                      # Noto Sans SC 中文字体
+│   └── presplash.png               # Android 启动屏
+├── tests/
+├── pyproject.toml                  # 项目元数据与依赖声明
+├── buildozer.spec                  # Android 构建配置
 └── README.md
 ```
 
