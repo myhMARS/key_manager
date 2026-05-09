@@ -10,121 +10,198 @@
             pos: self.pos
             size: self.size
 
-    # Main content
-    BoxLayout:
-        orientation: 'vertical'
-        padding: dp(16), dp(12), dp(16), dp(8)
-        spacing: dp(0)
-        pos: root.pos
-        size: root.size
+    FloatLayout:
+        size_hint: 1, 1
 
-        # Title row
         BoxLayout:
-            orientation: 'horizontal'
-            size_hint_y: None
-            height: dp(44)
-            spacing: dp(8)
+            orientation: 'vertical'
+            padding: dp(16), dp(12), dp(16), dp(8)
+            spacing: dp(0)
+            size_hint: 1, 1
 
-            Label:
-                text: 'Key Manager'
-                font_size: '22sp'
-                bold: True
-                color: 0.1, 0.1, 0.1, 1
-                size_hint_x: 1
-                halign: 'left'
-                valign: 'middle'
-                text_size: self.width, self.height
+            # Title row
+            BoxLayout:
+                orientation: 'horizontal'
+                size_hint_y: None
+                height: dp(44)
+                spacing: dp(8)
 
-            Button:
-                text: '+'
-                size_hint: None, None
-                size: dp(34), dp(34)
-                pos_hint: {'center_y': 0.5}
-                font_size: '20sp'
-                color: 0.4, 0.4, 0.4, 1
+                Label:
+                    text: 'Key Manager'
+                    font_size: '22sp'
+                    bold: True
+                    color: 0.1, 0.1, 0.1, 1
+                    size_hint_x: 1
+                    halign: 'left'
+                    valign: 'middle'
+                    text_size: self.width, self.height
+
+                Button:
+                    id: toggle_btn
+                    size_hint: None, None
+                    size: dp(34), dp(34)
+                    pos_hint: {'center_y': 0.5}
+                    background_normal: ''
+                    background_down: ''
+                    background_color: 0, 0, 0, 0
+                    on_release: root.toggle_layout()
+                    canvas.before:
+                        Color:
+                            rgba: 0.92, 0.92, 0.92, 1
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [dp(10)]
+                    canvas.after:
+                        # Stacked cards icon — visible in card mode
+                        # Back card outline (peeks out on the right)
+                        Color:
+                            rgba: 0.4, 0.4, 0.4, root.card_icon_alpha
+                        Line:
+                            rounded_rectangle: [self.center_x - dp(4), self.center_y - dp(7), dp(10), dp(14), dp(2)]
+                            width: 1.5
+                        # Front card fill (occludes back card lines)
+                        Color:
+                            rgba: 0.92, 0.92, 0.92, root.card_icon_alpha
+                        RoundedRectangle:
+                            pos: self.center_x - dp(6), self.center_y - dp(7)
+                            size: dp(10), dp(14)
+                            radius: [dp(2)]
+                        # Front card outline
+                        Color:
+                            rgba: 0.4, 0.4, 0.4, root.card_icon_alpha
+                        Line:
+                            rounded_rectangle: [self.center_x - dp(6), self.center_y - dp(7), dp(10), dp(14), dp(2)]
+                            width: 1.5
+                        # Hamburger icon (3 horizontal lines) — visible in list mode
+                        Color:
+                            rgba: 0.4, 0.4, 0.4, root.hamburger_alpha
+                        Rectangle:
+                            pos: self.center_x - dp(7), self.center_y + dp(4)
+                            size: dp(14), dp(1.5)
+                        Rectangle:
+                            pos: self.center_x - dp(7), self.center_y - dp(1)
+                            size: dp(14), dp(1.5)
+                        Rectangle:
+                            pos: self.center_x - dp(7), self.center_y - dp(6)
+                            size: dp(14), dp(1.5)
+
+                Button:
+                    size_hint: None, None
+                    size: dp(34), dp(34)
+                    pos_hint: {'center_y': 0.5}
+                    background_normal: ''
+                    background_down: ''
+                    background_color: 0, 0, 0, 0
+                    on_release: root.show_add_platform()
+                    canvas.before:
+                        Color:
+                            rgba: 0.92, 0.92, 0.92, 1
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [dp(10)]
+                    canvas.after:
+                        Color:
+                            rgba: 0.4, 0.4, 0.4, 1
+                        Rectangle:
+                            pos: self.center_x - dp(7), self.center_y - dp(1)
+                            size: dp(14), dp(2)
+                        Rectangle:
+                            pos: self.center_x - dp(1), self.center_y - dp(7)
+                            size: dp(2), dp(14)
+
+            # Global search bar
+            TextInput:
+                id: global_search
+                hint_text: 'Search all keys...'
+                font_size: '13sp'
+                size_hint_y: None
+                height: dp(36)
+                multiline: False
+                write_tab: False
                 background_normal: ''
-                background_down: ''
-                background_color: 0, 0, 0, 0
-                on_release: root.show_add_platform()
+                background_active: ''
+                background_color: 0.92, 0.92, 0.92, 1
+                cursor_color: 0.2, 0.2, 0.2, 1
+                foreground_color: 0.1, 0.1, 0.1, 1
+                hint_text_color: 0.5, 0.5, 0.5, 1
+                padding: [dp(12), dp(9), dp(12), dp(7)]
+                on_text: root.on_global_search(self.text)
+
+            # Card area (takes all remaining space)
+            RelativeLayout:
+                id: card_area
+                size_hint_y: 1
+
+            # List area (hidden by default, shown in list mode)
+            ScrollView:
+                id: list_scroll
+                size_hint_y: None
+                height: 0
+                opacity: 0
+                do_scroll_x: False
+                do_scroll_y: True
+
+                BoxLayout:
+                    id: list_container
+                    orientation: 'vertical'
+                    size_hint_y: None
+                    height: self.minimum_height
+                    spacing: dp(8)
+                    padding: dp(4), dp(8)
+
+            # Dots indicator
+            Widget:
+                id: dots_spacer
+                size_hint_y: None
+                height: dp(6)
+
+            AnchorLayout:
+                id: dots_anchor
+                size_hint_y: None
+                height: dp(24)
+                anchor_x: 'center'
+                anchor_y: 'center'
+
+                BoxLayout:
+                    id: dots_container
+                    orientation: 'horizontal'
+                    size_hint: None, None
+                    height: dp(10)
+                    width: self.minimum_width
+                    spacing: dp(6)
+
+            Widget:
+                id: bottom_spacer
+                size_hint_y: None
+                height: dp(4)
+
+        # Floating search results overlay
+        ScrollView:
+            id: search_results_scroll
+            size_hint: None, None
+            width: root.width - dp(32)
+            height: 0
+            pos_hint: {'center_x': 0.5, 'top': 0.85}
+            do_scroll_x: False
+
+            BoxLayout:
+                id: search_results
+                orientation: 'vertical'
+                size_hint_y: None
+                height: self.minimum_height
+                spacing: dp(2)
+                padding: dp(4)
                 canvas.before:
                     Color:
-                        rgba: 0.92, 0.92, 0.92, 1
+                        rgba: 1, 1, 1, 0.98
                     RoundedRectangle:
                         pos: self.pos
                         size: self.size
-                        radius: [dp(10)]
-
-        # Global search bar
-        TextInput:
-            id: global_search
-            hint_text: 'Search all keys...'
-            font_size: '13sp'
-            size_hint_y: None
-            height: dp(36)
-            multiline: False
-            write_tab: False
-            background_normal: ''
-            background_active: ''
-            background_color: 0.92, 0.92, 0.92, 1
-            cursor_color: 0.2, 0.2, 0.2, 1
-            foreground_color: 0.1, 0.1, 0.1, 1
-            hint_text_color: 0.5, 0.5, 0.5, 1
-            padding: [dp(12), dp(9), dp(12), dp(7)]
-            on_text: root.on_global_search(self.text)
-
-        # Card area
-        RelativeLayout:
-            id: card_area
-            size_hint_y: 1
-
-        # Dots indicator
-        Widget:
-            size_hint_y: None
-            height: dp(6)
-
-        AnchorLayout:
-            size_hint_y: None
-            height: dp(20)
-            anchor_x: 'center'
-            anchor_y: 'center'
-
-            BoxLayout:
-                id: dots_container
-                orientation: 'horizontal'
-                size_hint: None, None
-                height: dp(10)
-                width: self.minimum_width
-                spacing: dp(6)
-
-        Widget:
-            size_hint_y: None
-            height: dp(4)
-
-    # Floating search results overlay (on top of cards)
-    ScrollView:
-        id: search_results_scroll
-        size_hint: None, None
-        width: root.width - dp(32)
-        height: 0
-        pos: dp(16), root.height - dp(44) - dp(36) - dp(12) - self.height
-        do_scroll_x: False
-
-        BoxLayout:
-            id: search_results
-            orientation: 'vertical'
-            size_hint_y: None
-            height: self.minimum_height
-            spacing: dp(2)
-            padding: dp(4)
-            canvas.before:
-                Color:
-                    rgba: 1, 1, 1, 0.98
-                RoundedRectangle:
-                    pos: self.pos
-                    size: self.size
-                    radius: [dp(8)]
-                Color:
-                    rgba: 0.85, 0.85, 0.85, 1
-                Line:
-                    rounded_rectangle: [self.x, self.y, self.width, self.height, dp(8)]
-                    width: 1
+                        radius: [dp(8)]
+                    Color:
+                        rgba: 0.85, 0.85, 0.85, 1
+                    Line:
+                        rounded_rectangle: [self.x, self.y, self.width, self.height, dp(8)]
+                        width: 1

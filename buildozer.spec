@@ -30,7 +30,7 @@ android.archs = arm64-v8a
 # Orientation
 orientation = portrait
 
-# Fullscreen
+# Fullscreen (0 = respect status bar, content starts below it)
 fullscreen = 0
 
 # Icon

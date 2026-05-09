@@ -1,30 +1,43 @@
 """Home screen with stacked card deck and cut animation."""
 
+import time
+
 from kivy.animation import Animation
 from kivy.clock import Clock
 from kivy.metrics import dp
-from kivy.properties import NumericProperty
+from kivy.properties import BooleanProperty, NumericProperty
 from kivy.uix.screenmanager import Screen
 
-from ..core import storage
+from .widgets import Dot, PlatformListItem, TouchCard
 from ..core import platform_manager
-from ..core.theme import PLATFORM_COLORS, DEFAULT_CUSTOM_COLOR, accent_bg, accent_icon_bg
+from ..core import storage
 from ..core.events import bus
-from .widgets import Dot, TouchCard
+from ..core.theme import PLATFORM_COLORS, DEFAULT_CUSTOM_COLOR, accent_bg, accent_icon_bg
 
 
 class HomeScreen(Screen):
     current_index = NumericProperty(0)
+    list_mode = BooleanProperty(False)
+    hamburger_alpha = NumericProperty(0)
+    card_icon_alpha = NumericProperty(1)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._built = False
         self._animating = False
         self._cards = []
-        self._key_count_cache = {}  # platform_id -> count
+        self._list_items = []
+        self._key_count_cache = {}
+        self._last_anim_time = 0
+        bus.bind(on_platform_added=self._on_platforms_changed)
+        bus.bind(on_platform_deleted=self._on_platforms_changed)
+        bus.bind(on_platform_updated=self._on_platforms_changed)
+
+    def _on_platforms_changed(self, *args):
+        platform_manager.refresh()
+        self._refresh_layout()
 
     def on_enter(self, *args):
-        # Refresh key count cache on every entry
         self._refresh_key_counts()
 
         if not self._built:
@@ -33,17 +46,94 @@ class HomeScreen(Screen):
         else:
             old_total = platform_manager.get_total()
             platform_manager.refresh()
-            if platform_manager.get_total() != old_total or platform_manager.get_total() != len(self._cards):
+            if platform_manager.get_total() != old_total or self.list_mode:
+                self._refresh_layout()
+            elif platform_manager.get_total() != len(self._cards):
                 self.rebuild_deck()
             else:
                 self._update_all_cards()
                 self._update_dots()
+
+    def toggle_layout(self):
+        self.list_mode = not self.list_mode
+        self.hamburger_alpha = 1 if self.list_mode else 0
+        self.card_icon_alpha = 0 if self.list_mode else 1
+        self._refresh_layout()
+
+    def _refresh_layout(self):
+        parent_box = self.ids.card_area.parent
+        if self.list_mode:
+            self._saved_card_index = self.current_index
+            self.ids.card_area.size_hint_y = None
+            self.ids.card_area.height = 0
+            self.ids.card_area.opacity = 0
+            self.ids.card_area.disabled = True
+            self.ids.card_area.clear_widgets()
+            self._cards.clear()
+            self.ids.list_scroll.size_hint_y = 1
+            self.ids.list_scroll.opacity = 1
+            self.ids.dots_spacer.height = 0
+            self.ids.dots_spacer.opacity = 0
+            self.ids.dots_anchor.height = 0
+            self.ids.dots_anchor.opacity = 0
+            self.ids.bottom_spacer.height = 0
+            parent_box.do_layout()
+            self._build_list()
+        else:
+            self.ids.card_area.size_hint_y = 1
+            self.ids.card_area.opacity = 1
+            self.ids.card_area.disabled = False
+            self.ids.list_scroll.size_hint_y = None
+            self.ids.list_scroll.height = 0
+            self.ids.list_scroll.opacity = 0
+            self.ids.dots_spacer.height = dp(6)
+            self.ids.dots_spacer.opacity = 1
+            self.ids.dots_anchor.height = dp(24)
+            self.ids.dots_anchor.opacity = 1
+            self.ids.bottom_spacer.height = dp(4)
+            parent_box.do_layout()
+            self.rebuild_deck()
 
     def _refresh_key_counts(self):
         """Cache key counts for all platforms to avoid repeated file reads."""
         self._key_count_cache = {}
         for plat in platform_manager.get_platform_list():
             self._key_count_cache[plat.id] = storage.key_count(plat.id)
+
+    # ----------------------------------------------------------
+    #  List layout
+    # ----------------------------------------------------------
+
+    def _build_list(self):
+        platform_manager.refresh()
+        self._refresh_key_counts()
+
+        container = self.ids.list_container
+        container.clear_widgets()
+        self._list_items.clear()
+
+        for plat in platform_manager.get_platform_list():
+            accent = PLATFORM_COLORS.get(plat.id, DEFAULT_CUSTOM_COLOR)
+            count = self._key_count_cache.get(plat.id, 0)
+
+            item = PlatformListItem(
+                platform_name=plat.name,
+                key_count_text=f"{count} key{'s' if count != 1 else ''}",
+                accent_color=accent,
+                feature_text=(
+                    "Balance check" if plat.balance_url
+                    else "Key verification" if plat.verify_url
+                    else "Key management"
+                ),
+                platform_id=plat.id,
+                has_balance=bool(plat.balance_url),
+            )
+            if plat.icon_path:
+                item.icon_source = plat.icon_path
+            else:
+                item.icon_text = plat.icon
+            container.add_widget(item)
+            self._list_items.append(item)
 
     def _build(self):
         # Ensure custom platforms are loaded
@@ -68,8 +158,12 @@ class HomeScreen(Screen):
         platform_manager.refresh()
         self._refresh_key_counts()
 
-        # Clamp current_index to new platform at the end
-        if platform_manager.get_total() > 0:
+        # Restore saved index if returning from list mode, otherwise go to latest
+        saved = getattr(self, '_saved_card_index', None)
+        if saved is not None and saved < platform_manager.get_total():
+            self.current_index = saved
+            self._saved_card_index = None
+        elif platform_manager.get_total() > 0:
             self.current_index = platform_manager.get_total() - 1
         else:
             self.current_index = 0
@@ -154,7 +248,7 @@ class HomeScreen(Screen):
         """Calculate position/size for a card at given depth.
         Peek offset shrinks as more cards are added to fit them all."""
         card_w = area_w * 0.88
-        card_h = area_h * 0.90
+        card_h = area_h * 0.93
 
         total = platform_manager.get_total()
         # Dynamic peek: shrink as card count grows, min dp(4) per layer
@@ -366,12 +460,23 @@ class HomeScreen(Screen):
     #  Cut animation: next (top card slides out left, goes to bottom)
     # ----------------------------------------------------------
 
+    def _anim_speed(self):
+        now = time.monotonic()
+        gap = now - self._last_anim_time
+        self._last_anim_time = now
+        if gap < 0.3:
+            return 0.5
+        if gap < 0.6:
+            return 0.7
+        return 1.0
+
     def _animate_next(self, new_idx):
         """Next card: top card slides out to the left and tucks under."""
         if self._animating:
             return
         self._animating = True
 
+        sp = self._anim_speed()
         top_card = self._cards[-1]
         area = self.ids.card_area
         area_w = area.width
@@ -389,7 +494,7 @@ class HomeScreen(Screen):
 
         anim_out = Animation(
             x=target_x, opacity=0.3,
-            duration=0.2, t='out_quad',
+            duration=0.2 * sp, t='out_quad',
         )
 
         def on_slide_out(*args):
@@ -415,7 +520,7 @@ class HomeScreen(Screen):
                 x, y, w, h, opacity = self._get_deck_pos(depth, cur_w, cur_h)
                 anim = Animation(
                     x=x, y=y, width=w, height=h, opacity=opacity,
-                    duration=0.28, t='out_cubic',
+                    duration=0.28 * sp, t='out_cubic',
                 )
                 anims.append((card, anim))
 
@@ -441,6 +546,7 @@ class HomeScreen(Screen):
             return
         self._animating = True
 
+        sp = self._anim_speed()
         area = self.ids.card_area
         area_w = area.width
         area_h = area.height
@@ -480,7 +586,7 @@ class HomeScreen(Screen):
             x, y, w, h, opacity = self._get_deck_pos(depth, area_w, area_h)
             anim = Animation(
                 x=x, y=y, width=w, height=h, opacity=opacity,
-                duration=0.28, t='out_cubic',
+                duration=0.28 * sp, t='out_cubic',
             )
             anims.append((card, anim))
 

@@ -184,7 +184,7 @@
     canvas.after:
         # Status indicator - full-height bar hugging left edge inside card
         Color:
-            rgba: (0.2, 0.8, 0.4, 1) if self.key_status == 'valid' else (0.9, 0.2, 0.2, 1) if self.key_status == 'invalid' else (0.9, 0.75, 0.2, 1) if self.key_status == 'checking' else (0, 0, 0, 0)
+            rgba: (0.2, 0.8, 0.4, 1) if self.key_status == 'valid' else (0.9, 0.2, 0.2, 1) if self.key_status == 'invalid' else (0.6, 0.6, 0.6, 1) if self.key_status == 'error' else (0.9, 0.75, 0.2, 1) if self.key_status == 'checking' else (0, 0, 0, 0)
         Rectangle:
             pos: self.x + dp(1), self.y + dp(12)
             size: dp(3), self.height - dp(24)
@@ -292,6 +292,92 @@
             height: dp(18)
             halign: 'center'
             text_size: self.width, None
+
+
+<PlatformListItem>:
+    size_hint_y: None
+    height: dp(72)
+    canvas.before:
+        Color:
+            rgba: 1, 1, 1, 1
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(12)]
+
+    BoxLayout:
+        orientation: 'horizontal'
+        padding: dp(12), dp(12), dp(16), dp(12)
+        spacing: dp(12)
+        pos: root.pos
+        size: root.size
+
+        AnchorLayout:
+            size_hint: None, None
+            size: dp(48), dp(48)
+            anchor_x: 'center'
+            anchor_y: 'center'
+
+            AnchorLayout:
+                id: item_icon_box
+                size_hint: None, None
+                size: dp(40), dp(40)
+                anchor_x: 'center'
+                anchor_y: 'center'
+                canvas.before:
+                    Color:
+                        rgba: root.accent_color[0], root.accent_color[1], root.accent_color[2], 0.12
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(10)]
+
+        BoxLayout:
+            orientation: 'vertical'
+            size_hint_x: 1
+            spacing: dp(2)
+            pos_hint: {'center_y': 0.5}
+
+            Label:
+                text: root.platform_name
+                font_size: '15sp'
+                bold: True
+                color: 0.1, 0.1, 0.1, 1
+                size_hint_y: None
+                height: dp(22)
+                halign: 'left'
+                valign: 'bottom'
+                text_size: self.width, None
+
+            Label:
+                text: root.feature_text
+                font_size: '12sp'
+                color: 0.5, 0.5, 0.5, 1
+                size_hint_y: None
+                height: dp(18)
+                halign: 'left'
+                valign: 'top'
+                text_size: self.width, None
+
+        Label:
+            text: root.key_count_text
+            font_size: '13sp'
+            bold: True
+            color: root.accent_color
+            size_hint_x: None
+            width: dp(60)
+            halign: 'right'
+            valign: 'middle'
+            text_size: self.width, None
+
+        Label:
+            text: '>'
+            font_size: '14sp'
+            color: 0.7, 0.7, 0.7, 1
+            size_hint_x: None
+            width: dp(16)
+            halign: 'right'
+            valign: 'middle'
 
 
 <SnackBar>:

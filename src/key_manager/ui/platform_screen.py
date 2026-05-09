@@ -72,6 +72,7 @@ class PlatformScreen(Screen):
             edit_btn.disabled = True
 
         self._hide_result()
+        self.ids.progress_bar.height = 0
         self.ids.progress_bar.opacity = 0
         self.ids.search_input.text = ""
         self._key_status_cache = {}  # Reset cache for new platform
@@ -210,6 +211,13 @@ class PlatformScreen(Screen):
 
                 Clock.schedule_once(_update, 0)
 
+            except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError):
+                def _mark_error(dt, it=item):
+                    if self._validation_generation != generation:
+                        return
+                    it.key_status = "error"
+                    self._key_status_cache[it.key_name] = "error"
+                Clock.schedule_once(_mark_error, 0)
             except Exception:
                 def _mark_error(dt, it=item):
                     if self._validation_generation != generation:
@@ -255,6 +263,7 @@ class PlatformScreen(Screen):
         if target_item:
             target_item.key_status = "checking"
 
+        self.ids.progress_bar.height = dp(4)
         self.ids.progress_bar.opacity = 1
         self._hide_result()
 
@@ -302,6 +311,16 @@ class PlatformScreen(Screen):
 
             except httpx.CloseError:
                 pass
+            except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError):
+                def _mark_error(dt):
+                    if self._check_generation != generation:
+                        return
+                    if target_item:
+                        target_item.key_status = "error"
+                        self._key_status_cache[target_item.key_name] = "error"
+                    self._hide_progress()
+                    App.get_running_app().show_snackbar("Network error", "warning")
+                Clock.schedule_once(_mark_error, 0)
             except Exception:
                 def _mark_error(dt):
                     if self._check_generation != generation:
@@ -412,5 +431,6 @@ class PlatformScreen(Screen):
         self.ids.result_card.opacity = 0
 
     def _hide_progress(self):
+        self.ids.progress_bar.height = 0
         self.ids.progress_bar.opacity = 0
         self.ids.progress_bar.value = 0

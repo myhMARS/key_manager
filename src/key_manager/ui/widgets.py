@@ -78,6 +78,8 @@ class TouchCard(Widget):
         self._touch_start_pos = (0, 0)
         self._touch_start_time = 0
         self._swiping = False
+        self._swipe_start_x = 0
+        self._swipe_start_time = 0
         self.register_event_type('on_swipe_left')
         self.register_event_type('on_swipe_right')
         self.register_event_type('on_tap_card')
@@ -104,7 +106,7 @@ class TouchCard(Widget):
             self._touch_start_x = touch.x
             self._touch_start_y = touch.y
             self._touch_start_pos = (self.x, self.y)
-            self._touch_start_time = touch.time_start
+            self._touch_start_time = time.time()
             self._swiping = False
             touch.grab(self)
             return True
@@ -114,7 +116,10 @@ class TouchCard(Widget):
         if touch.grab_current is self:
             dx = touch.x - self._touch_start_x
             if abs(dx) > dp(10):
-                self._swiping = True
+                if not self._swiping:
+                    self._swiping = True
+                    self._swipe_start_x = touch.x
+                    self._swipe_start_time = time.time()
             if self._swiping:
                 # Move card with finger
                 self.x = self._touch_start_pos[0] + dx
@@ -129,13 +134,16 @@ class TouchCard(Widget):
             dx = touch.x - self._touch_start_x
             dy = abs(touch.y - self._touch_start_y)
 
-            # Calculate velocity (pixels per second)
-            elapsed = time.time() - self._touch_start_time
-            velocity = abs(dx) / max(elapsed, 0.01)
+            if self._swiping:
+                swipe_dx = touch.x - self._swipe_start_x
+                swipe_dt = max(time.time() - self._swipe_start_time, 0.01)
+                velocity = abs(swipe_dx) / swipe_dt
+            else:
+                velocity = 0
 
-            # Trigger swipe if: distance > 30dp OR velocity > 400px/s (with min 15dp move)
-            is_swipe = (abs(dx) > dp(30) and abs(dx) > dy) or \
-                       (velocity > dp(400) and abs(dx) > dp(15) and abs(dx) > dy)
+            # Trigger swipe if: distance > 25dp OR velocity > 250dp/s
+            is_swipe = (abs(dx) > dp(25) and abs(dx) > dy) or \
+                       (velocity > dp(250) and abs(dx) > dp(8) and abs(dx) > dy)
 
             if is_swipe:
                 if dx < 0:
@@ -248,3 +256,40 @@ class KeyItem(Widget):
 # ================================================================
 class EmptyKeyState(Widget):
     pass
+
+
+class PlatformListItem(Widget):
+    platform_name = StringProperty("")
+    key_count_text = StringProperty("0 keys")
+    accent_color = ListProperty([0.42, 0.42, 0.42, 1])
+    icon_source = StringProperty("")
+    icon_text = StringProperty("")
+    feature_text = StringProperty("Key management")
+    platform_id = StringProperty("")
+    has_balance = BooleanProperty(False)
+
+    def on_icon_source(self, _, value):
+        if value:
+            self.ids.item_icon_box.clear_widgets()
+            self.ids.item_icon_box.add_widget(
+                Image(source=value, size_hint=(None, None), size=(dp(36), dp(36))))
+
+    def on_icon_text(self, _, value):
+        if value and not self.icon_source:
+            self.ids.item_icon_box.clear_widgets()
+            lbl = Label(text=value, font_size='18sp', bold=True,
+                        size_hint=(None, None), size=(dp(36), dp(36)),
+                        halign='center', valign='middle',
+                        color=self.accent_color)
+            lbl.text_size = (dp(36), dp(36))
+            self.ids.item_icon_box.add_widget(lbl)
+
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            self.on_tap()
+            return True
+        return super().on_touch_down(touch)
+
+    def on_tap(self):
+        from ..core.events import bus
+        bus.dispatch('on_navigate', 'platform', platform_id=self.platform_id)
