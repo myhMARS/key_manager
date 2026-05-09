@@ -31,10 +31,11 @@ Key Manager 用统一的界面管理所有 AI API Key，加密存储，一键查
 
 ### 核心功能
 
-- **Key 管理** &mdash; 添加、重命名、复制、删除 API Key，直观的卡片式导航
-- **余额查询** &mdash; 一键查询已配置 Key 的剩余额度，自动适配不同平台的响应格式
-- **Key 校验** &mdash; 通过平台 API 验证 Key 是否有效，添加后自动校验
-- **自定义平台** &mdash; 支持任意 OpenAI 兼容接口的自定义平台，可编辑、可删除
+- **Key 管理** &mdash; 添加、重命名、复制、删除 API Key，卡片与列表两种浏览方式随意切换
+- **余额查询** &mdash; 一键查询 Key 剩余额度，结果直观展示
+- **Key 校验** &mdash; 自动验证 Key 有效性，准确区分过期失效和网络问题
+- **自定义平台** &mdash; 自由添加兼容 OpenAI 接口的第三方服务，支持编辑和删除
+- **全局搜索** &mdash; 跨平台快速搜索 Key，无需逐个翻找
 
 ### 安全
 
@@ -122,12 +123,12 @@ key-manager/
 │       │   ├── storage.py          # JSON 持久化存储与密码缓存
 │       │   └── theme.py            # 平台颜色主题
 │       └── ui/
-│           ├── home_screen.py      # 首页卡片堆叠 + 滑动动画
+│           ├── home_screen.py      # 首页卡片堆叠 / 列表双模式、滑动动画、全局搜索
 │           ├── lock_screen.py      # 密码设置 / 解锁 / 生物认证
-│           ├── platform_screen.py  # 平台详情、Key 列表、余额查询
-│           ├── widgets.py          # 可复用组件
-│           ├── popups.py           # 弹窗
-│           └── kv/                 # Kivy 布局文件
+│           ├── platform_screen.py  # 平台详情、Key 列表、余额查询、Key 校验
+│           ├── widgets.py          # 可复用组件（TouchCard、KeyItem、PlatformListItem 等）
+│           ├── popups.py           # 弹窗（添加平台、重命名 Key、确认删除等）
+│           └── kv/                 # Kivy 布局文件（Canvas 绘制图标）
 ├── assets/
 │   ├── icon/                       # 平台图标 + 应用 Logo
 │   ├── fonts/                      # Noto Sans SC 中文字体
