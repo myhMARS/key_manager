@@ -7,7 +7,7 @@ Actual logic lives in:
 """
 
 # Re-export theme
-from theme import PLATFORM_COLORS, DEFAULT_CUSTOM_COLOR, accent_bg, accent_icon_bg
+from .theme import PLATFORM_COLORS, DEFAULT_CUSTOM_COLOR, accent_bg, accent_icon_bg
 
 # Re-export platform manager
-from platform_manager import get_platform_list, get_total, refresh as refresh_platforms
+from .platform_manager import get_platform_list, get_total, refresh as refresh_platforms

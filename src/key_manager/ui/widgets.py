@@ -15,7 +15,7 @@ from kivy.uix.image import Image
 from kivy.uix.label import Label
 from kivy.uix.widget import Widget
 
-from theme import PLATFORM_COLORS
+from ..core.theme import PLATFORM_COLORS
 
 
 # ================================================================
@@ -166,7 +166,7 @@ class TouchCard(Widget):
         pass
 
     def on_view_keys(self):
-        from events import bus
+        from ..core.events import bus
         bus.dispatch('on_navigate', 'platform', platform_id=self.platform_id)
 
 
@@ -185,8 +185,8 @@ class KeyItem(Widget):
     key_status = StringProperty("unknown")  # "unknown", "valid", "invalid", "checking"
 
     def open_menu(self, button):
-        from ui.popups import RenameKeyPopup
-        from events import bus
+        from .popups import RenameKeyPopup
+        from ..core.events import bus
 
         app = App.get_running_app()
         dropdown = DropDown()

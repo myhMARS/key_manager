@@ -4,8 +4,8 @@ from kivy.clock import Clock
 from kivy.properties import BooleanProperty, StringProperty
 from kivy.uix.screenmanager import Screen
 
-import storage
-from biometric import (
+from ..core import storage
+from ..biometric import (
     is_biometric_available,
     has_stored_password,
     store_password_for_biometric,
@@ -105,5 +105,5 @@ class LockScreen(Screen):
             self._try_biometric()
 
     def _go_home(self):
-        from events import bus
+        from ..core.events import bus
         bus.dispatch('on_navigate', 'home', no_transition=True)

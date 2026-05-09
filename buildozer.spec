@@ -42,10 +42,10 @@ android.presplash_color = #F5F5F5
 presplash.filename = assets/presplash.png
 
 # Include files
-source.include_patterns = assets/*,ui/**/*
+source.include_patterns = assets/*,src/**/*
 
 # Exclude unnecessary files
-source.exclude_dirs = .venv,.idea,__pycache__,.git,.buildozer,bin
+source.exclude_dirs = .venv,.idea,__pycache__,.git,.buildozer,bin,tests
 source.exclude_patterns = *.pyc,*.pyo,uv.lock,*.md,*.spec
 
 # Log level

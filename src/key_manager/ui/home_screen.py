@@ -6,11 +6,11 @@ from kivy.metrics import dp
 from kivy.properties import NumericProperty
 from kivy.uix.screenmanager import Screen
 
-import storage
-import platform_manager
-from theme import PLATFORM_COLORS, DEFAULT_CUSTOM_COLOR, accent_bg, accent_icon_bg
-from events import bus
-from ui.widgets import Dot, TouchCard
+from ..core import storage
+from ..core import platform_manager
+from ..core.theme import PLATFORM_COLORS, DEFAULT_CUSTOM_COLOR, accent_bg, accent_icon_bg
+from ..core.events import bus
+from .widgets import Dot, TouchCard
 
 
 class HomeScreen(Screen):
@@ -242,7 +242,7 @@ class HomeScreen(Screen):
     # ----------------------------------------------------------
 
     def show_add_platform(self):
-        from ui.popups import AddPlatformPopup
+        from .popups import AddPlatformPopup
         popup = AddPlatformPopup()
         popup.open()
 

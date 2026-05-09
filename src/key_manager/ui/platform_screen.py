@@ -12,11 +12,11 @@ from kivy.uix.image import Image
 from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen
 
-import storage
-from theme import PLATFORM_COLORS
-from platforms import get_platform
-from ui.popups import AddKeyPopup
-from ui.widgets import EmptyKeyState, KeyItem
+from ..core import storage
+from ..core.theme import PLATFORM_COLORS
+from ..core.platforms import get_platform, get_balance_parser
+from .popups import AddKeyPopup
+from .widgets import EmptyKeyState, KeyItem
 
 
 class PlatformScreen(Screen):
@@ -26,6 +26,7 @@ class PlatformScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._plat = None
+        self._key_status_cache = {}  # key_name -> status ("valid"/"invalid")
 
     def load_platform(self, platform_id):
         self.platform_id = platform_id
@@ -73,6 +74,7 @@ class PlatformScreen(Screen):
         self._hide_result()
         self.ids.progress_bar.opacity = 0
         self.ids.search_input.text = ""
+        self._key_status_cache = {}  # Reset cache for new platform
         self.refresh_keys()
         # Start background validation of all keys
         Clock.schedule_once(lambda dt: self._validate_all_keys(), 0.3)
@@ -85,7 +87,7 @@ class PlatformScreen(Screen):
 
     def confirm_delete_platform(self):
         """Show confirmation if keys exist, otherwise dispatch delete directly."""
-        from ui.popups import ConfirmDeletePlatformPopup
+        from .popups import ConfirmDeletePlatformPopup
 
         key_count = storage.key_count(self.platform_id)
         if key_count > 0:
@@ -93,12 +95,12 @@ class PlatformScreen(Screen):
                 self.platform_id, self._plat.name, key_count)
             popup.open()
         else:
-            from events import bus
+            from ..core.events import bus
             bus.dispatch('on_platform_deleted', self.platform_id)
 
     def show_edit_platform(self):
         """Open edit popup for custom platform."""
-        from ui.popups import EditPlatformPopup
+        from .popups import EditPlatformPopup
         popup = EditPlatformPopup(
             platform_id=self.platform_id,
             name=self._plat.name,
@@ -139,11 +141,18 @@ class PlatformScreen(Screen):
                 platform_id=self.platform_id,
                 has_balance=bool(self._plat.balance_url if self._plat else False),
                 decrypt_ok=k.get("decrypt_ok", True),
+                key_status=self._key_status_cache.get(k["name"], "unknown"),
             )
             container.add_widget(item)
 
         if not filtered:
             container.add_widget(EmptyKeyState())
+
+        # Prune cache: keep only names that still exist
+        current_names = {k["name"] for _, k in filtered}
+        self._key_status_cache = {
+            n: s for n, s in self._key_status_cache.items() if n in current_names
+        }
 
     def on_search_text(self, text):
         """Debounced search within platform keys."""
@@ -196,6 +205,7 @@ class PlatformScreen(Screen):
                     if self.platform_id != platform_id:
                         return
                     it.key_status = "valid" if v else "invalid"
+                    self._key_status_cache[it.key_name] = it.key_status
 
                 Clock.schedule_once(_update, 0)
 
@@ -204,6 +214,7 @@ class PlatformScreen(Screen):
                     if self._validation_generation != generation:
                         return
                     it.key_status = "invalid"
+                    self._key_status_cache[it.key_name] = "invalid"
                 Clock.schedule_once(_mark_error, 0)
 
         def _run_all():
@@ -219,7 +230,7 @@ class PlatformScreen(Screen):
         popup.open()
 
     def trigger_check(self, api_key):
-        """Verify a single key and update its KeyItem status indicator."""
+        """Verify a single key, update status indicator, and show balance if available."""
         self._cancel_check()
 
         plat = self._plat
@@ -243,29 +254,45 @@ class PlatformScreen(Screen):
         if target_item:
             target_item.key_status = "checking"
 
+        self.ids.progress_bar.opacity = 1
+        self._hide_result()
+
         client = httpx.Client(timeout=10)
         self._active_client = client
 
         def _run():
             valid = False
+            balance_data = None
             try:
                 headers = {"Authorization": plat.auth_header.format(api_key=api_key)}
                 if plat.balance_url:
                     url = plat.base_url + plat.balance_url
                     resp = client.get(url, headers=headers)
                     valid = resp.status_code == 200
+                    if valid:
+                        try:
+                            balance_data = resp.json()
+                        except (ValueError, Exception):
+                            balance_data = "parse_error"
                 elif plat.verify_url:
                     url = plat.base_url + plat.verify_url
                     resp = client.get(url, headers=headers)
                     valid = resp.status_code == 200
 
-                def _update(dt, v=valid):
+                def _update(dt, v=valid, bd=balance_data):
                     if self._check_generation != generation:
                         return
                     if target_item:
                         target_item.key_status = "valid" if v else "invalid"
+                        self._key_status_cache[target_item.key_name] = target_item.key_status
+                    self._hide_progress()
                     app = App.get_running_app()
-                    if v:
+                    if v and bd == "parse_error":
+                        app.show_snackbar("Key valid, balance parse failed", "warning")
+                    elif v and bd:
+                        self._show_balance_result(bd)
+                        app.show_snackbar("Key is valid", "success")
+                    elif v:
                         app.show_snackbar("Key is valid", "success")
                     else:
                         app.show_snackbar("Key is invalid", "error")
@@ -280,6 +307,8 @@ class PlatformScreen(Screen):
                         return
                     if target_item:
                         target_item.key_status = "invalid"
+                        self._key_status_cache[target_item.key_name] = "invalid"
+                    self._hide_progress()
                     App.get_running_app().show_snackbar("Verification failed", "error")
                 Clock.schedule_once(_mark_error, 0)
             finally:
@@ -348,68 +377,9 @@ class PlatformScreen(Screen):
         container.opacity = 1
 
     def _parse_balance_response(self, data: dict) -> list:
-        """Parse balance API response into [(label, value), ...] pairs.
-        Handles DeepSeek format and generic JSON responses."""
-
-        # DeepSeek format: {"is_available": true, "balance_infos": [...]}
-        if "balance_infos" in data:
-            if not data.get("is_available"):
-                return []
-            entries = []
-            for info in data["balance_infos"]:
-                for k, v in info.items():
-                    label = k.replace("_", " ").title()
-                    entries.append((label, str(v)))
-            return entries
-
-        # Generic: try to extract numeric/string values from top-level or nested
-        entries = []
-        for k, v in data.items():
-            if isinstance(v, (int, float, str)):
-                label = k.replace("_", " ").title()
-                entries.append((label, str(v)))
-            elif isinstance(v, dict):
-                # One level of nesting
-                for sub_k, sub_v in v.items():
-                    if isinstance(sub_v, (int, float, str)):
-                        label = sub_k.replace("_", " ").title()
-                        entries.append((label, str(sub_v)))
-            elif isinstance(v, list) and v and isinstance(v[0], dict):
-                # Array of objects (like DeepSeek)
-                for item in v:
-                    for sub_k, sub_v in item.items():
-                        if isinstance(sub_v, (int, float, str)):
-                            label = sub_k.replace("_", " ").title()
-                            entries.append((label, str(sub_v)))
-
-        return entries
-
-    def _show_verify_result(self, valid, status_code):
-        container = self.ids.result_card
-        container.clear_widgets()
-
-        icon = "✓" if valid else "✗"
-        color = (0.06, 0.64, 0.50, 1) if valid else (0.9, 0.2, 0.2, 1)
-        msg = "Key is valid" if valid else f"Key rejected (HTTP {status_code})"
-
-        row = BoxLayout(size_hint_y=None, height=dp(28), spacing=dp(8))
-        lbl_icon = Label(
-            text=icon, font_size="16sp", bold=True, color=color,
-            size_hint_x=None, width=dp(24),
-            halign='center', valign='middle',
-        )
-        lbl_icon.bind(size=lambda w, s: setattr(w, 'text_size', s))
-        row.add_widget(lbl_icon)
-
-        lbl_msg = Label(
-            text=msg, font_size="14sp", bold=True, color=color,
-            size_hint_x=1, halign='left', valign='middle',
-        )
-        lbl_msg.bind(size=lambda w, s: setattr(w, 'text_size', s))
-        row.add_widget(lbl_msg)
-        container.add_widget(row)
-        container.height = dp(60)
-        container.opacity = 1
+        """Dispatch to the platform-specific balance parser."""
+        parser = get_balance_parser(self.platform_id)
+        return parser(data)
 
     def _show_error(self, msg):
         container = self.ids.result_card

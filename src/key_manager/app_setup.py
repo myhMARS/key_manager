@@ -11,7 +11,7 @@ from kivy.core.text import LabelBase
 from kivy.metrics import dp
 from kivy.utils import platform as kivy_platform
 
-_FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "fonts")
+_FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "assets", "fonts")
 
 
 def _register_fonts():

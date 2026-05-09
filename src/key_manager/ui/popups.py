@@ -5,8 +5,8 @@ from kivy.clock import Clock
 from kivy.properties import ListProperty, NumericProperty, StringProperty
 from kivy.uix.popup import Popup
 
-import storage
-from events import bus
+from ..core import storage
+from ..core.events import bus
 
 
 class RenameKeyPopup(Popup):

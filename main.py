@@ -1,9 +1,13 @@
 """Key Manager - Application entry point."""
 
 import os
+import sys
 
-import app_setup  # noqa: F401 - registers fonts and sets window size
-import config  # noqa: F401 - re-exports for other modules
+# Allow running from repo root without installing the package
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+
+from key_manager import app_setup  # noqa: F401 - registers fonts, sets window size
+from key_manager.core import config  # noqa: F401 - re-exports for other modules
 
 from kivy.app import App
 from kivy.lang import Builder
@@ -11,21 +15,22 @@ from kivy.properties import ObjectProperty
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.screenmanager import FadeTransition, ScreenManager
 
-from ui.widgets import SnackBar  # noqa: F401 - needed for kv
-from ui.lock_screen import LockScreen
-from ui.home_screen import HomeScreen
-from ui.platform_screen import PlatformScreen
-from events import bus
-import platform_manager
-import storage
+from key_manager.ui.widgets import SnackBar  # noqa: F401 - needed for kv
+from key_manager.ui.lock_screen import LockScreen
+from key_manager.ui.home_screen import HomeScreen
+from key_manager.ui.platform_screen import PlatformScreen
+from key_manager.core.events import bus
+from key_manager.core import platform_manager
+from key_manager.core import storage
 
-# Load all kv files (use os.path for cross-platform compatibility)
+# Load all kv files
 _BASE = os.path.dirname(os.path.abspath(__file__))
-Builder.load_file(os.path.join(_BASE, 'ui', 'kv', 'widgets.kv'))
-Builder.load_file(os.path.join(_BASE, 'ui', 'kv', 'popups.kv'))
-Builder.load_file(os.path.join(_BASE, 'ui', 'kv', 'lock.kv'))
-Builder.load_file(os.path.join(_BASE, 'ui', 'kv', 'home.kv'))
-Builder.load_file(os.path.join(_BASE, 'ui', 'kv', 'platform.kv'))
+_KV_DIR = os.path.join(_BASE, 'src', 'key_manager', 'ui', 'kv')
+Builder.load_file(os.path.join(_KV_DIR, 'widgets.kv'))
+Builder.load_file(os.path.join(_KV_DIR, 'popups.kv'))
+Builder.load_file(os.path.join(_KV_DIR, 'lock.kv'))
+Builder.load_file(os.path.join(_KV_DIR, 'home.kv'))
+Builder.load_file(os.path.join(_KV_DIR, 'platform.kv'))
 
 
 class KeyManagerApp(App):
@@ -98,17 +103,16 @@ class KeyManagerApp(App):
             Clock.schedule_once(lambda dt: setattr(self.sm, 'transition', old_transition), 0.1)
 
     def _on_key_changed(self, _, platform_id, **kwargs):
-        """Handle key mutations: perform delete if needed, then refresh and validate."""
-        from kivy.clock import Clock
-
+        """Handle key mutations: perform delete if needed, then refresh."""
         key_index = kwargs.get('key_index', None)
         if key_index is not None:
             storage.delete_key(platform_id, key_index)
         screen = self.sm.get_screen('platform')
         if screen.platform_id == platform_id:
             screen.refresh_keys()
-            # Auto-validate after adding a key (short delay for UI to settle)
-            if key_index is None:  # Not a delete, so it's add or rename
+            # Only validate on add (not delete — cached status is preserved)
+            if key_index is None:
+                from kivy.clock import Clock
                 Clock.schedule_once(lambda dt: screen._validate_all_keys(), 0.5)
 
     def _on_platform_changed(self, _, platform_id):

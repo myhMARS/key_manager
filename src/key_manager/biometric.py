@@ -157,7 +157,7 @@ def _get_device_key() -> bytes:
 
 def _encrypt_for_storage(plaintext: str) -> str:
     """Encrypt password with device-bound key before storing."""
-    from crypto import encrypt_raw
+    from .core.crypto import encrypt_raw
     key = _get_device_key()
     payload = encrypt_raw(plaintext.encode('utf-8'), key)
     return base64.b64encode(payload).decode('ascii')
@@ -165,7 +165,7 @@ def _encrypt_for_storage(plaintext: str) -> str:
 
 def _decrypt_from_storage(encoded: str) -> str:
     """Decrypt password with device-bound key."""
-    from crypto import decrypt_raw
+    from .core.crypto import decrypt_raw
     key = _get_device_key()
     payload = base64.b64decode(encoded)
     return decrypt_raw(payload, key).decode('utf-8')

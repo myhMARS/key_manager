@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from crypto import encrypt_key, decrypt_key, hash_password, verify_password
+from .crypto import encrypt_key, decrypt_key, hash_password, verify_password
 
 
 # Module-level password cache (set after unlock)
