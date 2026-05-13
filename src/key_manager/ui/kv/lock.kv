@@ -124,23 +124,26 @@
                     size: self.size
                     radius: [dp(12)]
 
-        # Fingerprint button (only visible when biometric is available)
+        # Fingerprint / biometric section
         AnchorLayout:
             size_hint_y: None
-            height: dp(56) if root.biometric_available else 0
+            height: dp(40) if root.biometric_available else 0
             opacity: 1 if root.biometric_available else 0
             anchor_x: 'center'
 
             Button:
-                text: 'Use Fingerprint'
+                id: biometric_btn
+                text: root.biometric_button_text
                 size_hint: None, None
-                size: dp(160), dp(40)
-                font_size: '13sp'
-                color: 0.3, 0.3, 0.3, 1
+                size: dp(240), dp(36)
+                font_size: '12sp'
+                color: 0.3, 0.3, 0.3, 1 if root.biometric_ready else (0.55, 0.55, 0.55, 1)
                 background_normal: ''
                 background_down: ''
                 background_color: 0, 0, 0, 0
-                disabled: not root.biometric_available
+                disabled: not root.biometric_ready
+                halign: 'center'
+                valign: 'middle'
                 on_release: root.on_biometric_tap()
 
         Widget:

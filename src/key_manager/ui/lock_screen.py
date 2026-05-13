@@ -8,6 +8,7 @@ from ..core import storage
 from ..biometric import (
     is_biometric_available,
     has_stored_password,
+    biometric_ready_reason,
     store_password_for_biometric,
     get_stored_password,
     authenticate_biometric,
@@ -18,6 +19,8 @@ class LockScreen(Screen):
     is_setup = BooleanProperty(False)
     error_text = StringProperty("")
     biometric_available = BooleanProperty(False)
+    biometric_button_text = StringProperty("")
+    biometric_ready = BooleanProperty(False)
 
     def on_enter(self, *args):
         self.is_setup = not storage.is_password_set()
@@ -28,13 +31,28 @@ class LockScreen(Screen):
             self.ids.password_input.text = ""
             if 'confirm_input' in self.ids:
                 self.ids.confirm_input.text = ""
-        self.biometric_available = (
-            not self.is_setup
-            and is_biometric_available()
-            and has_stored_password()
-        )
-        # Don't auto-trigger biometric - let user see the lock screen first
-        # They can tap "Use Fingerprint" button when ready
+
+        reason = biometric_ready_reason() if not self.is_setup else None
+        if self.is_setup:
+            if is_biometric_available():
+                self.biometric_available = True
+                self.biometric_ready = False
+                self.biometric_button_text = "Fingerprint unlock will be available after setup"
+            else:
+                self.biometric_available = False
+                self.biometric_button_text = ""
+        elif reason == "ready":
+            self.biometric_available = True
+            self.biometric_ready = True
+            self.biometric_button_text = "Use Fingerprint"
+        elif reason == "not_stored":
+            self.biometric_available = True
+            self.biometric_ready = False
+            self.biometric_button_text = "Unlock with password to enable fingerprint"
+        else:
+            self.biometric_available = False
+            self.biometric_ready = False
+            self.biometric_button_text = ""
 
     def on_submit(self):
         password = self.ids.password_input.text.strip()
@@ -54,9 +72,11 @@ class LockScreen(Screen):
             # Save and unlock
             storage.save_password_hash(password)
             storage.set_password(password)
-            # Store for biometric if available
+            # Store for biometric if device supports it
             if is_biometric_available():
-                store_password_for_biometric(password)
+                if store_password_for_biometric(password):
+                    self.biometric_ready = True
+                    self.biometric_button_text = "Use Fingerprint"
             self._go_home()
         else:
             # Verify
@@ -64,7 +84,9 @@ class LockScreen(Screen):
                 storage.set_password(password)
                 # Update biometric store
                 if is_biometric_available():
-                    store_password_for_biometric(password)
+                    if store_password_for_biometric(password):
+                        self.biometric_ready = True
+                        self.biometric_button_text = "Use Fingerprint"
                 self._go_home()
             else:
                 self.error_text = "Wrong password"
@@ -100,6 +122,8 @@ class LockScreen(Screen):
 
     def on_biometric_tap(self):
         """Manual biometric trigger (tap fingerprint button)."""
+        if not self.biometric_ready:
+            return
         if self.biometric_available:
             self.error_text = ""
             self._try_biometric()

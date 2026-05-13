@@ -67,9 +67,10 @@ class AddKeyPopup(Popup):
             return
 
         storage.add_key(self.platform_id, name, key)
+        new_index = storage.key_count(self.platform_id) - 1
         self.dismiss()
 
-        bus.dispatch('on_key_added', self.platform_id)
+        bus.dispatch('on_key_added', self.platform_id, key_name=name, new_key_index=new_index)
         App.get_running_app().show_snackbar("Key added", "success")
 
 

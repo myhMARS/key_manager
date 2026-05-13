@@ -5,82 +5,77 @@ Provides:
 - High-level: encrypt_key / decrypt_key (password-based, for API keys)
 - Password hashing: hash_password / verify_password
 
-No external dependencies - pure Python standard library.
+All primitives use the cryptography library — no custom implementations.
 """
 
 import base64
-import hashlib
-import hmac
 import os
-import struct
+
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import hashes
+
+
+# Older cryptography versions (< 3.0) require an explicit backend argument.
+# Detect once at import time so we never pay the overhead again.
+_NEEDS_BACKEND = None
+
+
+def _detect_backend():
+    global _NEEDS_BACKEND
+    if _NEEDS_BACKEND is not None:
+        return _NEEDS_BACKEND
+    try:
+        PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=16,
+            salt=b'\x00' * 16,
+            iterations=1,
+        )
+        _NEEDS_BACKEND = False
+    except TypeError:
+        _NEEDS_BACKEND = True
+    return _NEEDS_BACKEND
+
+
+def _create_kdf(*, algorithm, length, salt, iterations):
+    """Create PBKDF2HMAC, compatible with old and new cryptography versions."""
+    if _detect_backend():
+        from cryptography.hazmat.backends import default_backend
+        return PBKDF2HMAC(
+            algorithm=algorithm, length=length, salt=salt,
+            iterations=iterations, backend=default_backend(),
+        )
+    return PBKDF2HMAC(
+        algorithm=algorithm, length=length, salt=salt,
+        iterations=iterations,
+    )
 
 
 # ==============================================================
-#  Low-level primitives (HMAC-CTR + PKCS7 + HMAC integrity)
+#  Low-level primitives (AES-256-GCM)
 # ==============================================================
-
-def _pad(data: bytes) -> bytes:
-    """PKCS7 padding to 16-byte boundary."""
-    pad_len = 16 - (len(data) % 16)
-    return data + bytes([pad_len] * pad_len)
-
-
-def _unpad(data: bytes) -> bytes:
-    """Remove PKCS7 padding."""
-    pad_len = data[-1]
-    if pad_len < 1 or pad_len > 16:
-        raise ValueError("Invalid padding")
-    if data[-pad_len:] != bytes([pad_len] * pad_len):
-        raise ValueError("Invalid padding")
-    return data[:-pad_len]
-
 
 def encrypt_raw(plaintext: bytes, key: bytes) -> bytes:
-    """Encrypt bytes with a 32-byte key.
-    Returns: iv[16] + ciphertext + hmac[32]
+    """Encrypt bytes with a 32-byte key using AES-256-GCM.
+    Returns: nonce[12] + ciphertext_with_tag
     """
-    iv = os.urandom(16)
-    padded = _pad(plaintext)
-
-    # CTR-mode encryption using HMAC as PRF
-    ciphertext = b""
-    for i in range(0, len(padded), 16):
-        block = padded[i:i + 16]
-        counter_bytes = struct.pack('>Q', i // 16) + iv[:8]
-        keystream = hmac.new(key, counter_bytes, 'sha256').digest()[:16]
-        ciphertext += bytes(a ^ b for a, b in zip(block, keystream))
-
-    # HMAC-SHA256 for integrity
-    mac = hmac.new(key, iv + ciphertext, 'sha256').digest()
-
-    return iv + ciphertext + mac
+    nonce = os.urandom(12)
+    aesgcm = AESGCM(key)
+    ciphertext = aesgcm.encrypt(nonce, plaintext, None)
+    return nonce + ciphertext
 
 
 def decrypt_raw(data: bytes, key: bytes) -> bytes:
     """Decrypt bytes produced by encrypt_raw.
-    Raises ValueError on integrity failure or bad padding.
+    Raises InvalidTag on integrity failure or bad data.
     """
-    if len(data) < 64:  # iv(16) + min_block(16) + mac(32)
+    if len(data) < 28:  # nonce(12) + min_ct(1) + tag(16)
         raise ValueError("Data too short")
-
-    iv = data[:16]
-    mac = data[-32:]
-    ciphertext = data[16:-32]
-
-    # Verify HMAC
-    expected_mac = hmac.new(key, iv + ciphertext, 'sha256').digest()
-    if not hmac.compare_digest(mac, expected_mac):
-        raise ValueError("Integrity check failed")
-
-    # Decrypt
-    plaintext_padded = b""
-    for i in range(0, len(ciphertext), 16):
-        block = ciphertext[i:i + 16]
-        counter_bytes = struct.pack('>Q', i // 16) + iv[:8]
-        keystream = hmac.new(key, counter_bytes, 'sha256').digest()[:16]
-        plaintext_padded += bytes(a ^ b for a, b in zip(block, keystream))
-
-    return _unpad(plaintext_padded)
+    nonce = data[:12]
+    ciphertext = data[12:]
+    aesgcm = AESGCM(key)
+    return aesgcm.decrypt(nonce, ciphertext, None)
 
 
 # ==============================================================
@@ -89,10 +84,13 @@ def decrypt_raw(data: bytes, key: bytes) -> bytes:
 
 def derive_key(password: str, salt: bytes, iterations: int = 200_000) -> bytes:
     """Derive a 32-byte key from password using PBKDF2-HMAC-SHA256."""
-    return hashlib.pbkdf2_hmac(
-        'sha256', password.encode('utf-8'), salt,
-        iterations=iterations, dklen=32,
+    kdf = _create_kdf(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=iterations,
     )
+    return kdf.derive(password.encode('utf-8'))
 
 
 # ==============================================================
@@ -135,8 +133,13 @@ def decrypt_key(encoded: str, password: str) -> str:
 def hash_password(password: str) -> str:
     """Create a verifiable hash. Stores base64(salt[16] + hash[32])."""
     salt = os.urandom(16)
-    h = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'),
-                            salt, iterations=200_000, dklen=32)
+    kdf = _create_kdf(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=200_000,
+    )
+    h = kdf.derive(password.encode('utf-8'))
     return base64.b64encode(salt + h).decode('ascii')
 
 
@@ -146,8 +149,13 @@ def verify_password(password: str, password_hash: str) -> bool:
         raw = base64.b64decode(password_hash)
         salt = raw[:16]
         stored_hash = raw[16:]
-        computed = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'),
-                                       salt, iterations=200_000, dklen=32)
-        return hmac.compare_digest(stored_hash, computed)
+        kdf = _create_kdf(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=200_000,
+        )
+        kdf.verify(password.encode('utf-8'), stored_hash)
+        return True
     except Exception:
         return False

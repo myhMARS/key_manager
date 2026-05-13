@@ -14,7 +14,7 @@ source.include_exts = py,png,jpg,kv,ttf,ttc,json
 entrypoint = main.py
 
 # Requirements - pin python3 to let p4a choose, pure python deps listed
-requirements = python3,kivy,pillow,certifi,httpx,httpcore,idna,sniffio,anyio,h11,pyjnius,android
+requirements = python3,kivy,pillow,certifi,httpx,httpcore,idna,sniffio,anyio,h11,pyjnius,android,cryptography
 
 # Android permissions
 android.permissions = INTERNET,USE_BIOMETRIC,USE_FINGERPRINT

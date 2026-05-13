@@ -17,7 +17,7 @@ class AppEvents(EventDispatcher):
         self.register_event_type('on_navigate')
         super().__init__(**kwargs)
 
-    def on_key_added(self, platform_id):
+    def on_key_added(self, platform_id, **kwargs):
         pass
 
     def on_key_deleted(self, platform_id, **kwargs):

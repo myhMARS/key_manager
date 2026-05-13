@@ -22,6 +22,7 @@ from key_manager.ui.platform_screen import PlatformScreen
 from key_manager.core.events import bus
 from key_manager.core import platform_manager
 from key_manager.core import storage
+from key_manager.core import key_validator
 
 # Load all kv files
 _BASE = os.path.dirname(os.path.abspath(__file__))
@@ -67,6 +68,8 @@ class KeyManagerApp(App):
         except ImportError:
             pass
 
+        self._startup_validated = False
+
         # Wire event bus for navigation
         bus.bind(on_navigate=self._on_navigate)
         bus.bind(on_key_deleted=self._on_key_changed)
@@ -97,6 +100,10 @@ class KeyManagerApp(App):
                 screen.trigger_check(key)
         elif screen_name == 'home':
             self.sm.current = 'home'
+            if not self._startup_validated:
+                self._startup_validated = True
+                from kivy.clock import Clock
+                Clock.schedule_once(lambda dt: key_validator.validate_all(), 0.8)
 
         if no_transition:
             from kivy.clock import Clock
@@ -105,15 +112,17 @@ class KeyManagerApp(App):
     def _on_key_changed(self, _, platform_id, **kwargs):
         """Handle key mutations: perform delete if needed, then refresh."""
         key_index = kwargs.get('key_index', None)
+        new_key_index = kwargs.get('new_key_index', None)
         if key_index is not None:
             storage.delete_key(platform_id, key_index)
+            key_validator.on_key_deleted(platform_id, key_index)
         screen = self.sm.get_screen('platform')
         if screen.platform_id == platform_id:
             screen.refresh_keys()
             # Only validate on add (not delete — cached status is preserved)
-            if key_index is None:
+            if key_index is None and new_key_index is not None:
                 from kivy.clock import Clock
-                Clock.schedule_once(lambda dt: screen._validate_all_keys(), 0.5)
+                Clock.schedule_once(lambda dt: screen._validate_all_keys(key_index=new_key_index), 0.5)
 
     def _on_platform_changed(self, _, platform_id):
         """Rebuild home deck and reload platform screen after platform changes."""

@@ -13,6 +13,7 @@ from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen
 
 from ..core import storage
+from ..core.key_validator import get_status as get_key_status, set_status as set_key_status
 from ..core.theme import PLATFORM_COLORS
 from ..core.platforms import get_platform, get_balance_parser
 from .popups import AddKeyPopup
@@ -26,7 +27,6 @@ class PlatformScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._plat = None
-        self._key_status_cache = {}  # key_name -> status ("valid"/"invalid")
 
     def load_platform(self, platform_id):
         self.platform_id = platform_id
@@ -75,13 +75,12 @@ class PlatformScreen(Screen):
         self.ids.progress_bar.height = 0
         self.ids.progress_bar.opacity = 0
         self.ids.search_input.text = ""
-        self._key_status_cache = {}  # Reset cache for new platform
         self.refresh_keys()
-        # Start background validation of all keys
-        Clock.schedule_once(lambda dt: self._validate_all_keys(), 0.3)
 
     def go_back(self):
         self._cancel_check()
+        if hasattr(self, '_poll_event') and self._poll_event:
+            self._poll_event.cancel()
         # Cancel background validation
         self._validation_generation = getattr(self, '_validation_generation', 0) + 1
         self.manager.current = 'home'
@@ -143,18 +142,15 @@ class PlatformScreen(Screen):
                 platform_id=self.platform_id,
                 has_balance=bool(self._plat.balance_url if self._plat else False),
                 decrypt_ok=k.get("decrypt_ok", True),
-                key_status=self._key_status_cache.get(k["name"], "unknown"),
+                key_status=get_key_status(self.platform_id, i),
             )
             container.add_widget(item)
 
         if not filtered:
             container.add_widget(EmptyKeyState())
 
-        # Prune cache: keep only names that still exist
-        current_names = {k["name"] for _, k in filtered}
-        self._key_status_cache = {
-            n: s for n, s in self._key_status_cache.items() if n in current_names
-        }
+        # Poll for status updates from the global background validator
+        self._poll_status_updates()
 
     def on_search_text(self, text):
         """Debounced search within platform keys."""
@@ -163,8 +159,36 @@ class PlatformScreen(Screen):
         self._search_event = Clock.schedule_once(
             lambda dt: self.refresh_keys(search_text=text), 0.2)
 
-    def _validate_all_keys(self):
-        """Background-validate all keys for the current platform."""
+    def _poll_status_updates(self):
+        """Poll the global cache and update KeyItem widgets until all resolved."""
+        if hasattr(self, '_poll_event') and self._poll_event:
+            self._poll_event.cancel()
+
+        def _poll(dt):
+            if self.manager and self.manager.current != 'platform':
+                return False
+            container = self.ids.key_list_container
+            items = [w for w in container.children[::-1] if isinstance(w, KeyItem)]
+            if not items:
+                return False
+            all_resolved = True
+            for item in items:
+                if item.key_status in ("unknown", "checking"):
+                    cached = get_key_status(self.platform_id, item.key_index)
+                    if cached != item.key_status:
+                        item.key_status = cached
+                    if cached in ("unknown", "checking"):
+                        all_resolved = False
+            if all_resolved:
+                return False  # Stop the interval
+
+        self._poll_event = Clock.schedule_interval(_poll, 0.3)
+
+    def _validate_all_keys(self, key_index=None):
+        """Background-validate keys for the current platform.
+
+        If *key_index* is given, only the key at that index is validated.
+        """
         if not self._plat:
             return
         if not self._plat.verify_url and not self._plat.balance_url:
@@ -179,7 +203,10 @@ class PlatformScreen(Screen):
         container = self.ids.key_list_container
         items = [w for w in container.children[::-1] if isinstance(w, KeyItem)]
 
-        # Mark all as checking
+        if key_index is not None:
+            items = [w for w in items if w.key_index == key_index]
+
+        # Mark as checking
         for item in items:
             if item.decrypt_ok:
                 item.key_status = "checking"
@@ -207,7 +234,7 @@ class PlatformScreen(Screen):
                     if self.platform_id != platform_id:
                         return
                     it.key_status = "valid" if v else "invalid"
-                    self._key_status_cache[it.key_name] = it.key_status
+                    set_key_status(platform_id, it.key_index, it.key_status)
 
                 Clock.schedule_once(_update, 0)
 
@@ -216,14 +243,14 @@ class PlatformScreen(Screen):
                     if self._validation_generation != generation:
                         return
                     it.key_status = "error"
-                    self._key_status_cache[it.key_name] = "error"
+                    set_key_status(platform_id, it.key_index, "error")
                 Clock.schedule_once(_mark_error, 0)
             except Exception:
                 def _mark_error(dt, it=item):
                     if self._validation_generation != generation:
                         return
                     it.key_status = "invalid"
-                    self._key_status_cache[it.key_name] = "invalid"
+                    set_key_status(platform_id, it.key_index, "invalid")
                 Clock.schedule_once(_mark_error, 0)
 
         def _run_all():
@@ -294,7 +321,7 @@ class PlatformScreen(Screen):
                         return
                     if target_item:
                         target_item.key_status = "valid" if v else "invalid"
-                        self._key_status_cache[target_item.key_name] = target_item.key_status
+                        set_key_status(self.platform_id, target_item.key_index, target_item.key_status)
                     self._hide_progress()
                     app = App.get_running_app()
                     if v and bd == "parse_error":
@@ -317,7 +344,7 @@ class PlatformScreen(Screen):
                         return
                     if target_item:
                         target_item.key_status = "error"
-                        self._key_status_cache[target_item.key_name] = "error"
+                        set_key_status(self.platform_id, target_item.key_index, "error")
                     self._hide_progress()
                     App.get_running_app().show_snackbar("Network error", "warning")
                 Clock.schedule_once(_mark_error, 0)
@@ -327,7 +354,7 @@ class PlatformScreen(Screen):
                         return
                     if target_item:
                         target_item.key_status = "invalid"
-                        self._key_status_cache[target_item.key_name] = "invalid"
+                        set_key_status(self.platform_id, target_item.key_index, "invalid")
                     self._hide_progress()
                     App.get_running_app().show_snackbar("Verification failed", "error")
                 Clock.schedule_once(_mark_error, 0)

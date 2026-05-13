@@ -381,7 +381,10 @@ class HomeScreen(Screen):
     def _render_search_results(self, matches):
         """Render search results on the main thread."""
         from kivy.uix.button import Button
+        from kivy.uix.label import Label
+        from kivy.uix.floatlayout import FloatLayout
         from kivy.metrics import dp as dp_fn
+        from ..core.key_validator import get_status as get_key_status
 
         results_container = self.ids.search_results
         results_scroll = self.ids.search_results_scroll
@@ -394,12 +397,18 @@ class HomeScreen(Screen):
         # Build platform name lookup
         plat_names = {p.id: p.name for p in platform_manager.get_platform_list()}
 
-        for pid, key_name in matches:
+        self._search_result_rows = []
+
+        for pid, key_name, key_index in matches:
             plat_name = plat_names.get(pid, pid)
+            status = get_key_status(pid, key_index)
+
+            row = FloatLayout(size_hint_y=None, height=dp_fn(40))
+
             btn = Button(
                 text=f"{key_name}  -  {plat_name}",
-                size_hint_y=None,
-                height=dp_fn(40),
+                size_hint=(1, 1),
+                pos_hint={'x': 0, 'y': 0},
                 font_size='13sp',
                 color=(0.15, 0.15, 0.15, 1),
                 background_normal='',
@@ -407,15 +416,61 @@ class HomeScreen(Screen):
                 background_color=(0.97, 0.97, 0.97, 1),
                 halign='left',
                 valign='middle',
+                padding=[dp_fn(14), dp_fn(0)],
             )
-            btn.bind(size=lambda w, s: setattr(w, 'text_size', (s[0] - dp_fn(16), s[1])))
+            btn.bind(size=lambda w, s: setattr(w, 'text_size', (s[0] - dp_fn(40), s[1])))
             btn.platform_id = pid
             btn.bind(on_release=lambda b: self._search_result_tap(b.platform_id))
-            results_container.add_widget(btn)
+
+            dot = Label(
+                text="●",
+                font_size='10sp',
+                color=self._dot_color(status),
+                size_hint=(None, None),
+                size=(dp_fn(20), dp_fn(20)),
+                pos_hint={'right': 0.92, 'center_y': 0.5},
+                halign='center', valign='middle',
+            )
+            dot.text_size = (dp_fn(20), dp_fn(20))
+
+            row.add_widget(btn)
+            row.add_widget(dot)
+            results_container.add_widget(row)
+
+            self._search_result_rows.append((pid, key_index, dot))
 
         max_visible = 5
         row_height = dp_fn(42)
         results_scroll.height = min(len(matches), max_visible) * row_height + dp_fn(8)
+
+        self._poll_search_statuses()
+
+    def _dot_color(self, status):
+        return {"valid": (0.2, 0.7, 0.3, 1), "invalid": (0.9, 0.2, 0.2, 1),
+                "error": (0.95, 0.55, 0.1, 1), "checking": (0.7, 0.7, 0.7, 1),
+                "unknown": (0.85, 0.85, 0.85, 1)}.get(status, (0.85, 0.85, 0.85, 1))
+
+    def _poll_search_statuses(self):
+        """Periodically update search result dot colors from the global cache."""
+        if hasattr(self, '_search_poll_event') and self._search_poll_event:
+            self._search_poll_event.cancel()
+
+        from ..core.key_validator import get_status as get_key_status
+
+        def _poll(dt):
+            rows = getattr(self, '_search_result_rows', [])
+            if not rows:
+                return False
+            all_resolved = True
+            for pid, idx, dot in rows:
+                cached = get_key_status(pid, idx)
+                dot.color = self._dot_color(cached)
+                if cached in ("unknown", "checking"):
+                    all_resolved = False
+            if all_resolved:
+                return False
+
+        self._search_poll_event = Clock.schedule_interval(_poll, 0.5)
 
     def _search_result_tap(self, platform_id):
         """Navigate to platform from search result."""

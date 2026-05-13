@@ -212,14 +212,14 @@ def update_custom_platform(platform_id: str, name: str = None, base_url: str = N
 
 def search_key_names(query: str) -> list:
     """Search key names across all platforms without decrypting keys.
-    Returns [(platform_id, key_name), ...] — fast, no crypto involved."""
+    Returns [(platform_id, key_name, key_index), ...] — fast, no crypto involved."""
     query = query.strip().lower()
     if not query:
         return []
     cfg = read_config()
     results = []
     for pid, pdata in cfg.get("platforms", {}).items():
-        for k in pdata.get("keys", []):
+        for idx, k in enumerate(pdata.get("keys", [])):
             if query in k.get("name", "").lower():
-                results.append((pid, k["name"]))
+                results.append((pid, k["name"], idx))
     return results

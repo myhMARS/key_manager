@@ -177,14 +177,27 @@
                 size_hint_y: None
                 height: dp(4)
 
-        # Floating search results overlay
+        # Floating search results overlay — anchored below the search bar
         ScrollView:
             id: search_results_scroll
             size_hint: None, None
-            width: root.width - dp(32)
+            width: global_search.width
             height: 0
-            pos_hint: {'center_x': 0.5, 'top': 0.85}
+            x: global_search.x
+            y: global_search.y - self.height
             do_scroll_x: False
+            canvas.before:
+                Color:
+                    rgba: 1, 1, 1, 0.98
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [dp(8)]
+                Color:
+                    rgba: 0.85, 0.85, 0.85, 1
+                Line:
+                    rounded_rectangle: [self.x, self.y, self.width, self.height, dp(8)]
+                    width: 1
 
             BoxLayout:
                 id: search_results
@@ -193,15 +206,3 @@
                 height: self.minimum_height
                 spacing: dp(2)
                 padding: dp(4)
-                canvas.before:
-                    Color:
-                        rgba: 1, 1, 1, 0.98
-                    RoundedRectangle:
-                        pos: self.pos
-                        size: self.size
-                        radius: [dp(8)]
-                    Color:
-                        rgba: 0.85, 0.85, 0.85, 1
-                    Line:
-                        rounded_rectangle: [self.x, self.y, self.width, self.height, dp(8)]
-                        width: 1
