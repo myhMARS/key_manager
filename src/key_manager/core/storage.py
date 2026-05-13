@@ -302,3 +302,173 @@ def search_key_names(query: str) -> list:
             if query in k.get("name", "").lower():
                 results.append((pid, k["name"], idx))
     return results
+
+
+# ----------------------------------------------------------
+#  Import / Export
+# ----------------------------------------------------------
+
+def export_config(filepath: str, on_progress=None):
+    """Write the config to a JSON file with **plaintext** keys.
+    Keys are decrypted using the current password before export.
+    The exported file contains raw API keys — keep it secure.
+
+    If *on_progress* is given, it is called as ``on_progress(current, total)``
+    after each key is decrypted."""
+    cfg = read_config()
+
+    # Count total keys first
+    total = sum(
+        len(pdata.get("keys", []))
+        for pdata in cfg.get("platforms", {}).values()
+    )
+    processed = 0
+
+    export_data = {}
+    if "password_hash" in cfg:
+        export_data["password_hash"] = cfg["password_hash"]
+    if "custom_platforms" in cfg:
+        export_data["custom_platforms"] = cfg["custom_platforms"]
+
+    export_data["platforms"] = {}
+    for pid, pdata in cfg.get("platforms", {}).items():
+        keys_out = []
+        for k in pdata.get("keys", []):
+            entry = {
+                "name": k.get("name", ""),
+                "created_at": k.get("created_at", ""),
+            }
+            raw, ok = try_decrypt(k.get("key", ""))
+            entry["key"] = raw if ok else ""
+            keys_out.append(entry)
+            processed += 1
+            if on_progress:
+                on_progress(processed, total)
+        export_data["platforms"][pid] = {"keys": keys_out}
+
+    with open(filepath, 'w', encoding='utf-8') as f:
+        json.dump(export_data, f, ensure_ascii=False, indent=2)
+
+
+def import_config(filepath: str, mode: str = 'merge', on_progress=None) -> dict:
+    """Import config from a JSON file. Keys in the file are expected to be
+    plaintext — they will be encrypted with the current password on import.
+
+    *mode*: 'merge' appends keys to existing platforms and adds new platforms;
+    'replace' overwrites the entire config.
+
+    If *on_progress* is given, it is called as ``on_progress(current, total, label)``
+    during processing.
+
+    Returns summary dict: {keys_count, platforms_count, skipped_count}.
+    Raises ValueError if the file is missing or has invalid structure.
+    """
+    import os as _os
+    from datetime import datetime as _datetime
+
+    if not _os.path.exists(filepath):
+        raise ValueError("File not found")
+
+    with open(filepath, 'r', encoding='utf-8') as f:
+        try:
+            imported = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON file: {e}")
+
+    # Validate basic structure
+    if not isinstance(imported, dict):
+        raise ValueError("Invalid format: expected a JSON object")
+    imported_platforms = imported.get("platforms")
+    if imported_platforms is not None and not isinstance(imported_platforms, dict):
+        raise ValueError("Invalid format: 'platforms' must be an object")
+
+    # Build set of existing plaintext keys for dedup
+    existing_keys = set()
+    cfg = read_config()
+    for pdata in cfg.get("platforms", {}).values():
+        for k in pdata.get("keys", []):
+            raw, ok = try_decrypt(k.get("key", ""))
+            if ok and raw:
+                existing_keys.add(raw)
+
+    # Count total incoming keys
+    total = sum(
+        len(pdata.get("keys", []))
+        for pdata in imported.get("platforms", {}).values()
+    )
+    processed = 0
+    keys_count = 0
+    platforms_count = 0
+    skipped_count = 0
+
+    def _encrypt_keys(keys):
+        """Encrypt plaintext keys, skip duplicates. Returns encrypted list."""
+        nonlocal processed, keys_count, skipped_count
+        today = _datetime.now().strftime("%Y-%m-%d")
+        encrypted = []
+        for k in keys:
+            plaintext = k.get("key", "")
+            processed += 1
+            if plaintext and plaintext in existing_keys:
+                skipped_count += 1
+                if on_progress:
+                    on_progress(processed, total, 'skipping duplicate')
+                continue
+            if plaintext:
+                existing_keys.add(plaintext)
+                keys_count += 1
+            encrypted.append({
+                "name": k.get("name", ""),
+                "key": encrypt_key(plaintext, _password) if plaintext else "",
+                "masked": _make_masked(plaintext) if plaintext else "****",
+                "created_at": k.get("created_at") or today,
+            })
+            if on_progress:
+                on_progress(processed, total, 'importing')
+        return encrypted
+
+    if mode == 'replace':
+        # Keep the current password_hash if one exists
+        existing_hash = cfg.get("password_hash", "")
+        if existing_hash and imported.get("password_hash") != existing_hash:
+            imported["password_hash"] = existing_hash
+
+        # Replace: import everything, no dedup
+            existing_keys.clear()
+        for pid, pdata in imported.get("platforms", {}).items():
+            pdata["keys"] = _encrypt_keys(pdata.get("keys", []))
+            platforms_count += 1
+
+        # Ensure all built-in platform slots exist
+        for pid in _default_config()["platforms"]:
+            imported.setdefault("platforms", {})[pid] = imported.get("platforms", {}).get(pid, {"keys": []})
+
+        write_config(imported)
+    else:
+        # Merge: encrypt and append keys from imported file
+        for pid, pdata in imported.get("platforms", {}).items():
+            keys = pdata.get("keys", [])
+            if not keys:
+                continue
+            encrypted = _encrypt_keys(keys)
+            if encrypted:
+                existing = cfg.setdefault("platforms", {}).setdefault(pid, {"keys": []})
+                existing["keys"].extend(encrypted)
+                platforms_count += 1
+
+        # Merge custom platforms
+        imported_customs = imported.get("custom_platforms", [])
+        if imported_customs:
+            existing_customs = cfg.setdefault("custom_platforms", [])
+            existing_ids = {p["id"] for p in existing_customs}
+            for cp in imported_customs:
+                if cp.get("id") not in existing_ids:
+                    existing_customs.append(cp)
+                    existing_ids.add(cp["id"])
+
+        write_config(cfg)
+
+    if on_progress:
+        on_progress(total, total, 'done')
+    return {"keys_count": keys_count, "platforms_count": platforms_count,
+            "skipped_count": skipped_count}

@@ -111,6 +111,35 @@
                             pos: self.center_x - dp(1), self.center_y - dp(7)
                             size: dp(2), dp(14)
 
+                Button:
+                    id: more_btn
+                    size_hint: None, None
+                    size: dp(34), dp(34)
+                    pos_hint: {'center_y': 0.5}
+                    background_normal: ''
+                    background_down: ''
+                    background_color: 0, 0, 0, 0
+                    on_release: root.show_more_menu(self)
+                    canvas.before:
+                        Color:
+                            rgba: 0.92, 0.92, 0.92, 1
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [dp(10)]
+                    canvas.after:
+                        Color:
+                            rgba: 0.4, 0.4, 0.4, 1
+                        Ellipse:
+                            pos: self.center_x - dp(1.5), self.center_y - dp(5)
+                            size: dp(3), dp(3)
+                        Ellipse:
+                            pos: self.center_x - dp(1.5), self.center_y
+                            size: dp(3), dp(3)
+                        Ellipse:
+                            pos: self.center_x - dp(1.5), self.center_y + dp(5)
+                            size: dp(3), dp(3)
+
             # Global search bar
             TextInput:
                 id: global_search

@@ -340,6 +340,132 @@ class HomeScreen(Screen):
         popup = AddPlatformPopup()
         popup.open()
 
+    def show_more_menu(self, button):
+        from kivy.uix.button import Button
+        from kivy.uix.dropdown import DropDown
+        from kivy.graphics import Color, RoundedRectangle, Line
+
+        dropdown = DropDown()
+        dropdown.auto_width = False
+        dropdown.width = dp(168)
+        dropdown.padding = dp(8)
+        dropdown.bar_width = 0
+
+        # Dropdown background — white card with border
+        with dropdown.canvas.before:
+            Color(1, 1, 1, 1)
+            dropdown._bg_rect = RoundedRectangle(
+                pos=dropdown.pos, size=dropdown.size, radius=[dp(12)])
+            Color(0.88, 0.88, 0.88, 1)
+            dropdown._border = Line(
+                rounded_rectangle=[*dropdown.pos, *dropdown.size, dp(12)], width=dp(0.7))
+        dropdown.bind(
+            pos=lambda d, v: (
+                setattr(d._bg_rect, 'pos', v),
+                setattr(d._border, 'rounded_rectangle', [*v, *d.size, dp(12)]),
+            ),
+            size=lambda d, v: (
+                setattr(d._bg_rect, 'size', v),
+                setattr(d._border, 'rounded_rectangle', [*d.pos, *v, dp(12)]),
+            ),
+        )
+
+        def make_btn(text, arrow_up, on_select):
+            """Create a button with a canvas-drawn arrow icon (no unicode)."""
+            btn = Button(
+                text=text,
+                size_hint_y=None,
+                height=dp(44),
+                size_hint_x=1,
+                background_normal='',
+                background_down='',
+                background_color=(0, 0, 0, 0),
+                color=(0.15, 0.15, 0.15, 1),
+                font_size='14sp',
+                halign='left',
+                valign='middle',
+                padding=[dp(40), dp(0)],
+            )
+            btn.bind(size=lambda w, s: setattr(w, 'text_size', (s[0], None)))
+
+            # Button background — transparent, no rounded corners
+            with btn.canvas.before:
+                btn._bg_color_inst = Color(0, 0, 0, 0)
+                btn._bg = RoundedRectangle(pos=btn.pos, size=btn.size, radius=[0])
+            btn.bind(
+                pos=lambda b, v: (
+                    setattr(b._bg, 'pos', v),
+                    b._redraw_arrow(),
+                ),
+                size=lambda b, v: (
+                    setattr(b._bg, 'size', v),
+                    b._redraw_arrow(),
+                ),
+            )
+
+            # Canvas-drawn arrow icon
+            with btn.canvas.after:
+                Color(0.35, 0.35, 0.35, 1)
+                btn._arrow_lines = []
+            btn._arrow_up = arrow_up
+
+            def _redraw_arrow():
+                # Clear old arrow lines
+                for inst in btn._arrow_lines:
+                    btn.canvas.after.remove(inst)
+                btn._arrow_lines.clear()
+
+                cx = btn.x + dp(24)
+                cy = btn.y + btn.height / 2
+                s = dp(4.5)
+
+                if btn._arrow_up:
+                    # Up arrow: vertical line + chevron tip
+                    Color(0.3, 0.3, 0.3, 1)
+                    line1 = Line(points=[cx, cy - s, cx, cy + s], width=dp(1.8))
+                    line2 = Line(points=[cx - s, cy, cx, cy + s], width=dp(1.8))
+                    line3 = Line(points=[cx + s, cy, cx, cy + s], width=dp(1.8))
+                else:
+                    # Down arrow: vertical line + chevron tip
+                    Color(0.3, 0.3, 0.3, 1)
+                    line1 = Line(points=[cx, cy + s, cx, cy - s], width=dp(1.8))
+                    line2 = Line(points=[cx - s, cy, cx, cy - s], width=dp(1.8))
+                    line3 = Line(points=[cx + s, cy, cx, cy - s], width=dp(1.8))
+
+                for line in (line1, line2, line3):
+                    btn.canvas.after.add(line)
+                    btn._arrow_lines.append(line)
+
+            btn._redraw_arrow = _redraw_arrow
+
+            def on_press(instance):
+                instance._bg_color_inst.rgba = (0.93, 0.93, 0.93, 1)
+            def on_release_btn(instance):
+                instance._bg_color_inst.rgba = (1, 1, 1, 1)
+
+            btn.bind(
+                on_press=on_press,
+                on_release=lambda b: (
+                    on_release_btn(b),
+                    dropdown.select(on_select),
+                ),
+            )
+            return btn
+
+        def do_export():
+            from .popups import ConfirmExportPopup
+            ConfirmExportPopup().open()
+
+        def do_import():
+            from .popups import ImportPopup
+            ImportPopup().open()
+
+        dropdown.add_widget(make_btn("Export", arrow_up=True, on_select=do_export))
+        dropdown.add_widget(make_btn("Import", arrow_up=False, on_select=do_import))
+
+        dropdown.bind(on_select=lambda instance, x: x())
+        dropdown.open(button)
+
     # ----------------------------------------------------------
     #  Global search
     # ----------------------------------------------------------

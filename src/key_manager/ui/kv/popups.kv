@@ -42,7 +42,7 @@
                 color: 0.1, 0.1, 0.1, 1
                 size_hint_x: 1
                 halign: 'left'
-                text_size: self.width, None
+                text_size: self.width, self.height
 
         TextInput:
             id: name_input
@@ -85,7 +85,7 @@
             size_hint_y: None
             height: dp(18)
             halign: 'left'
-            text_size: self.width, None
+            text_size: self.width, self.height
 
         BoxLayout:
             size_hint_y: None
@@ -157,7 +157,7 @@
             size_hint_y: None
             height: dp(28)
             halign: 'left'
-            text_size: self.width, None
+            text_size: self.width, self.height
 
         TextInput:
             id: rename_input
@@ -183,7 +183,7 @@
             size_hint_y: None
             height: dp(16)
             halign: 'left'
-            text_size: self.width, None
+            text_size: self.width, self.height
 
         BoxLayout:
             size_hint_y: None
@@ -257,7 +257,7 @@
             size_hint_y: None
             height: dp(28)
             halign: 'left'
-            text_size: self.width, None
+            text_size: self.width, self.height
 
         TextInput:
             id: platform_name_input
@@ -331,7 +331,7 @@
             size_hint_y: None
             height: dp(16)
             halign: 'left'
-            text_size: self.width, None
+            text_size: self.width, self.height
 
         BoxLayout:
             size_hint_y: None
@@ -437,7 +437,7 @@
             height: dp(40)
             halign: 'left'
             valign: 'top'
-            text_size: self.width, None
+            text_size: self.width, self.height
 
         Widget:
             size_hint_y: 1
@@ -517,7 +517,7 @@
             size_hint_y: None
             height: dp(28)
             halign: 'left'
-            text_size: self.width, None
+            text_size: self.width, self.height
 
         TextInput:
             id: edit_name_input
@@ -591,7 +591,7 @@
             size_hint_y: None
             height: dp(16)
             halign: 'left'
-            text_size: self.width, None
+            text_size: self.width, self.height
 
         BoxLayout:
             size_hint_y: None
@@ -630,3 +630,521 @@
                         pos: self.pos
                         size: self.size
                         radius: [dp(10)]
+
+
+<ConfirmExportPopup>:
+    title: ''
+    separator_height: 0
+    size_hint: 0.85, None
+    height: dp(280)
+    auto_dismiss: False
+    background: ''
+    background_color: 0, 0, 0, 0
+    overlay_color: 0, 0, 0, 0.4
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(20)
+        spacing: dp(14)
+        size_hint: 1, 1
+        canvas.before:
+            Color:
+                rgba: 1, 1, 1, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [dp(16)]
+
+        Label:
+            text: 'Export Keys'
+            font_size: '16sp'
+            bold: True
+            color: 0.1, 0.1, 0.1, 1
+            size_hint_y: None
+            height: dp(28)
+            halign: 'left'
+            text_size: self.width, self.height
+
+        # Content (hidden during export)
+        BoxLayout:
+            id: confirm_content
+            orientation: 'vertical'
+            size_hint_y: 1
+            spacing: dp(12)
+
+            Label:
+                text: 'Keys will be exported in plaintext — keep the file secure. You can use this backup to restore keys or migrate to another device.'
+                font_size: '13sp'
+                color: 0.45, 0.45, 0.45, 1
+                size_hint_y: None
+                height: self.texture_size[1] + dp(4)
+                halign: 'left'
+                valign: 'top'
+                text_size: self.width, None
+
+            Label:
+                text: '! Exported keys are not encrypted'
+                font_size: '12sp'
+                bold: True
+                color: 0.95, 0.55, 0.1, 1
+                size_hint_y: None
+                height: dp(20)
+                halign: 'left'
+                text_size: self.width, self.height
+
+            Widget:
+                size_hint_y: 1
+
+            BoxLayout:
+                size_hint_y: None
+                height: dp(40)
+                spacing: dp(12)
+
+                Button:
+                    text: 'Cancel'
+                    size_hint_x: 1
+                    color: 0.3, 0.3, 0.3, 1
+                    background_normal: ''
+                    background_down: ''
+                    background_color: 0, 0, 0, 0
+                    font_size: '14sp'
+                    on_release: root.dismiss()
+                    canvas.before:
+                        Color:
+                            rgba: 0.94, 0.94, 0.94, 1
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [dp(10)]
+
+                Button:
+                    text: 'Export'
+                    size_hint_x: 1
+                    color: 1, 1, 1, 1
+                    font_size: '14sp'
+                    bold: True
+                    on_release: root.on_export()
+                    background_normal: ''
+                    background_down: ''
+                    background_color: 0, 0, 0, 0
+                    canvas.before:
+                        Color:
+                            rgba: 0.95, 0.55, 0.1, 1
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [dp(10)]
+
+        # Progress (shown during export)
+        BoxLayout:
+            id: progress_section
+            orientation: 'vertical'
+            size_hint_y: None
+            spacing: dp(12)
+            opacity: 0
+            height: 0
+
+            Widget:
+                size_hint_y: 1
+
+            ProgressBar:
+                id: export_progress
+                max: 100
+                value: 0
+                size_hint_y: None
+                height: dp(6)
+
+            Label:
+                id: progress_label
+                text: 'Exporting...'
+                font_size: '12sp'
+                color: 0.5, 0.5, 0.5, 1
+                size_hint_y: None
+                height: dp(18)
+                halign: 'center'
+                text_size: self.width, self.height
+
+            Widget:
+                size_hint_y: 2
+
+
+<ImportPopup>:
+    title: ''
+    separator_height: 0
+    size_hint: 0.85, None
+    height: dp(314)
+    auto_dismiss: False
+    background: ''
+    background_color: 0, 0, 0, 0
+    overlay_color: 0, 0, 0, 0.4
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(16)
+        spacing: dp(10)
+        size_hint: 1, 1
+        canvas.before:
+            Color:
+                rgba: 1, 1, 1, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [dp(16)]
+
+        # Title
+        Label:
+            text: 'Import Keys'
+            font_size: '16sp'
+            bold: True
+            color: 0.1, 0.1, 0.1, 1
+            size_hint_y: None
+            height: dp(22)
+            halign: 'left'
+            valign: 'middle'
+            text_size: self.width, self.height
+
+        # Description
+        Label:
+            text: 'Import from backup. Keys will be encrypted on import.'
+            font_size: '12sp'
+            color: 0.45, 0.45, 0.45, 1
+            size_hint_y: None
+            height: dp(32)
+            halign: 'left'
+            valign: 'top'
+            text_size: self.width, self.height
+
+        # Mode toggle buttons
+        BoxLayout:
+            id: import_content
+            size_hint_y: None
+            height: dp(34)
+            spacing: dp(10)
+
+            Button:
+                id: merge_btn
+                text: 'Merge'
+                size_hint_x: 1
+                font_size: '13sp'
+                bold: True
+                on_release: root.on_merge()
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                color: 1, 1, 1, 1
+                canvas.before:
+                    Color:
+                        rgba: 0.2, 0.6, 0.9, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(8)]
+
+            Button:
+                id: replace_btn
+                text: 'Replace'
+                size_hint_x: 1
+                font_size: '13sp'
+                bold: True
+                on_release: root.on_replace()
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                color: 0.3, 0.3, 0.3, 1
+                canvas.before:
+                    Color:
+                        rgba: 0.94, 0.94, 0.94, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(8)]
+
+        # File path input + browse
+        BoxLayout:
+            size_hint_y: None
+            height: dp(42)
+            spacing: dp(8)
+
+            TextInput:
+                id: file_path_input
+                hint_text: 'Backup file path'
+                font_size: '13sp'
+                size_hint_x: 1
+                multiline: False
+                write_tab: False
+                background_normal: ''
+                background_active: ''
+                background_color: 0.96, 0.96, 0.96, 1
+                cursor_color: 0.3, 0.3, 0.3, 1
+                foreground_color: 0.1, 0.1, 0.1, 1
+                hint_text_color: 0.6, 0.6, 0.6, 1
+                padding: [dp(12), dp(12), dp(12), dp(10)]
+
+            Button:
+                text: 'Browse'
+                size_hint_x: None
+                width: dp(68)
+                font_size: '13sp'
+                bold: True
+                color: 0.2, 0.6, 0.9, 1
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                on_release: root.on_choose_file()
+                canvas.before:
+                    Color:
+                        rgba: 0.92, 0.96, 1, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(8)]
+
+        # Error text
+        Label:
+            id: file_path_label
+            text: root.error_text
+            font_size: '11sp'
+            color: 0.9, 0.2, 0.2, 1
+            size_hint_y: None
+            height: dp(14)
+            halign: 'left'
+            text_size: self.width, self.height
+
+        # Action buttons
+        BoxLayout:
+            size_hint_y: None
+            height: dp(40)
+            spacing: dp(12)
+
+            Button:
+                text: 'Cancel'
+                size_hint_x: 1
+                color: 0.3, 0.3, 0.3, 1
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                font_size: '14sp'
+                on_release: root.dismiss()
+                canvas.before:
+                    Color:
+                        rgba: 0.94, 0.94, 0.94, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(10)]
+
+            Button:
+                text: 'Import'
+                size_hint_x: 1
+                color: 1, 1, 1, 1
+                font_size: '14sp'
+                bold: True
+                on_release: root.on_import()
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                canvas.before:
+                    Color:
+                        rgba: 0.2, 0.6, 0.9, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(10)]
+
+        # Progress section (shown during import, initially hidden)
+        BoxLayout:
+            id: import_progress_section
+            orientation: 'vertical'
+            size_hint_y: None
+            height: 0
+            spacing: dp(8)
+            opacity: 0
+
+            ProgressBar:
+                id: import_progress
+                max: 100
+                value: 0
+                size_hint_y: None
+                height: dp(6)
+
+            Label:
+                id: import_progress_label
+                text: ''
+                font_size: '12sp'
+                color: 0.5, 0.5, 0.5, 1
+                size_hint_y: None
+                height: dp(18)
+                halign: 'center'
+                text_size: self.width, self.height
+
+
+<FileChooserPopup>:
+    title: 'Select Backup File'
+    separator_height: 0
+    size_hint: 0.95, 0.8
+    auto_dismiss: True
+    background: ''
+    background_color: 0, 0, 0, 0
+    overlay_color: 0, 0, 0, 0.4
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(12)
+        spacing: dp(8)
+        size_hint: 1, 1
+        canvas.before:
+            Color:
+                rgba: 1, 1, 1, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [dp(12)]
+
+        BoxLayout:
+            id: chooser_box
+            size_hint_y: 1
+
+        BoxLayout:
+            size_hint_y: None
+            height: dp(40)
+            spacing: dp(12)
+
+            Button:
+                text: 'Cancel'
+                size_hint_x: 1
+                color: 0.3, 0.3, 0.3, 1
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                font_size: '14sp'
+                on_release: root.dismiss()
+                canvas.before:
+                    Color:
+                        rgba: 0.94, 0.94, 0.94, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(10)]
+
+            Button:
+                text: 'Select'
+                size_hint_x: 1
+                color: 1, 1, 1, 1
+                font_size: '14sp'
+                bold: True
+                on_release: root.on_choose()
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                canvas.before:
+                    Color:
+                        rgba: 0.2, 0.6, 0.9, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(10)]
+
+
+<ExportResultPopup>:
+    title: ''
+    separator_height: 0
+    size_hint: 0.88, None
+    height: dp(240)
+    auto_dismiss: True
+    background: ''
+    background_color: 0, 0, 0, 0
+    overlay_color: 0, 0, 0, 0.4
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(20)
+        spacing: dp(0)
+        size_hint: 1, 1
+        canvas.before:
+            Color:
+                rgba: 1, 1, 1, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [dp(20)]
+
+        # Title
+        Label:
+            text: 'Export Complete'
+            font_size: '17sp'
+            bold: True
+            color: 0.1, 0.1, 0.1, 1
+            size_hint_y: None
+            height: dp(36)
+            halign: 'center'
+            valign: 'middle'
+            text_size: self.width, dp(36)
+
+        # Subtitle
+        Label:
+            text: 'Backup file has been saved'
+            font_size: '13sp'
+            color: 0.5, 0.5, 0.5, 1
+            size_hint_y: None
+            height: dp(24)
+            halign: 'center'
+            valign: 'top'
+            text_size: self.width, dp(24)
+
+        Widget:
+            size_hint_y: None
+            height: dp(12)
+
+        # Path row
+        BoxLayout:
+            size_hint_y: None
+            height: dp(40)
+            spacing: dp(8)
+
+            Label:
+                text: root.filepath
+                font_size: '12sp'
+                color: 0.25, 0.25, 0.25, 1
+                size_hint_x: 1
+                halign: 'left'
+                valign: 'middle'
+                text_size: self.width, dp(36)
+                shorten: True
+                shorten_from: 'left'
+
+            Button:
+                text: 'Copy'
+                size_hint_x: None
+                width: dp(52)
+                color: 0.18, 0.78, 0.44, 1
+                background_normal: ''
+                background_down: ''
+                background_color: 0, 0, 0, 0
+                font_size: '12sp'
+                bold: True
+                on_release: root.on_copy()
+
+        Widget:
+            size_hint_y: None
+            height: dp(16)
+
+        # OK button
+        Button:
+            text: 'OK'
+            size_hint_y: None
+            height: dp(42)
+            size_hint_x: 1
+            color: 1, 1, 1, 1
+            font_size: '14sp'
+            bold: True
+            on_release: root.dismiss()
+            background_normal: ''
+            background_down: ''
+            background_color: 0, 0, 0, 0
+            canvas.before:
+                Color:
+                    rgba: 0.18, 0.78, 0.44, 1
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [dp(10)]

@@ -6,4 +6,5 @@ dependencies = [
     "kivy>=2.3.0",
     "httpx>=0.28.0",
     "cryptography>=44.0.0",
+    "androidstorage4kivy>=0.1.1",
 ]

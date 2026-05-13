@@ -103,6 +103,9 @@ class TouchCard(Widget):
 
     def on_touch_down(self, touch):
         if self.collide_point(*touch.pos):
+            # Let children (buttons, etc.) handle the touch first
+            if super().on_touch_down(touch):
+                return True
             self._touch_start_x = touch.x
             self._touch_start_y = touch.y
             self._touch_start_pos = (self.x, self.y)

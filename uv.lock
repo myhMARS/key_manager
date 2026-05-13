@@ -3,6 +3,15 @@ revision = 3
 requires-python = ">=3.12"
 
 [[package]]
+name = "androidstorage4kivy"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/10/22/f9e95529d7616d0ba76fe68aa5d8e763352fc95fc6e2940279a71a0198ce/androidstorage4kivy-0.1.1.tar.gz", hash = "sha256:b9296710a78e70e30cf6adff73978ae83da2325e76af11f8d70f71cbb2e14dbd", size = 14071, upload-time = "2023-11-14T04:32:57.712Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b9/bc/77fa82fa6de35ecccfddf3017aab538dd6f489233d4c5826149b75e2beec/androidstorage4kivy-0.1.1-py3-none-any.whl", hash = "sha256:88042da6937f0fbfd4f5a635496084bee3be84aa27b34b6a14489c7ce8d53c32", size = 12251, upload-time = "2023-11-14T04:32:55.86Z" },
+]
+
+[[package]]
 name = "anyio"
 version = "4.13.0"
 source = { registry = "https://pypi.org/simple" }
@@ -276,6 +285,7 @@ name = "key-manager"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "androidstorage4kivy" },
     { name = "cryptography" },
     { name = "httpx" },
     { name = "kivy" },
@@ -283,6 +293,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "androidstorage4kivy", specifier = ">=0.1.1" },
     { name = "cryptography", specifier = ">=44.0.0" },
     { name = "httpx", specifier = ">=0.28.0" },
     { name = "kivy", specifier = ">=2.3.0" },
