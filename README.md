@@ -15,8 +15,6 @@
   <img src="https://img.shields.io/badge/Kivy-2.3+-purple.svg" alt="Kivy 2.3+" />
 </p>
 
----
-> 该库正在开发中，apikey加密算法可能会在后续发生变更，当前应用暂未提供导出功能，注意备份apikey以避免版本更新导致的不必要的损失
 ## 为什么需要 Key Manager
 
 当你同时使用多个 AI 平台的 API 时，管理散落在各处的 Key 会变得很麻烦：
@@ -32,17 +30,18 @@ Key Manager 用统一的界面管理所有 AI API Key，加密存储，一键查
 ### 核心功能
 
 - **Key 管理** &mdash; 添加、重命名、复制、删除 API Key，卡片与列表两种浏览方式随意切换
+- **导入导出** &mdash; 支持明文导出备份（JSON 格式），导入时自动去重，支持合并 / 替换两种模式
 - **余额查询** &mdash; 一键查询 Key 剩余额度，结果直观展示
-- **Key 校验** &mdash; 自动验证 Key 有效性，准确区分过期失效和网络问题
+- **Key 校验** &mdash; 后台自动验证全部 Key 有效性，准确区分过期失效和网络问题
 - **自定义平台** &mdash; 自由添加兼容 OpenAI 接口的第三方服务，支持编辑和删除
 - **全局搜索** &mdash; 跨平台快速搜索 Key，无需逐个翻找
 
 ### 安全
 
-- **加密存储** &mdash; PBKDF2-HMAC-SHA256 派生密钥，HMAC-CTR + PKCS7 加密，HMAC-SHA256 防篡改
+- **加密存储** &mdash; PBKDF2-HMAC-SHA256 派生密钥，AES-256-GCM 加密，内建完整性校验
 - **主密码保护** &mdash; 设置主密码解锁应用，切后台 60 秒自动锁定
 - **生物认证** &mdash; Android 端支持指纹、面部识别、PIN 码快速解锁
-- **纯标准库加密** &mdash; 加密模块零外部依赖，使用 hashlib、hmac、base64 标准库
+- **成熟密码库** &mdash; 基于 [cryptography](https://cryptography.io/) 库实现，安全可靠
 
 ### 内置平台
 
@@ -50,11 +49,12 @@ Key Manager 用统一的界面管理所有 AI API Key，加密存储，一键查
 |------|:---:|:---:|
 | DeepSeek | &#10003; | &#10003; |
 | Moonshot | &#10003; | &#10003; |
+| 智谱 GLM | &mdash; | &#10003; |
 | OpenAI | &mdash; | &#10003; |
 | 阿里百炼 | &mdash; | &#10003; |
 | 小米 MiMo | &mdash; | &#10003; |
 
-> OpenAI、阿里百炼、小米 MiMo 的 API 未公开余额查询端点，仅支持 Key 有效性校验。有余额查询需求的用户可通过自定义平台接入第三方代理接口。
+> OpenAI、阿里百炼、智谱、小米 MiMo 的 API 未公开余额查询端点，仅支持 Key 有效性校验。有余额查询需求的用户可通过自定义平台接入第三方代理接口。
 
 自定义平台支持任意兼容 OpenAI API 格式的服务商。
 
@@ -80,7 +80,7 @@ git clone https://github.com/myhMARS/key-manager.git
 cd key-manager
 
 # 安装依赖
-pip install kivy httpx
+pip install kivy httpx cryptography
 
 # 或使用 uv（推荐）
 uv sync
@@ -116,18 +116,19 @@ key-manager/
 │       ├── biometric.py            # Android 生物认证封装
 │       ├── core/
 │       │   ├── config.py           # 向后兼容导出
-│       │   ├── crypto.py           # 加密模块（纯标准库实现）
+│       │   ├── crypto.py           # AES-256-GCM 加密（基于 cryptography 库）
 │       │   ├── events.py           # 事件总线，模块间解耦通信
+│       │   ├── key_validator.py    # 全局后台 Key 校验服务
 │       │   ├── platform_manager.py # 平台列表懒加载管理
 │       │   ├── platforms.py        # 内置 + 自定义平台定义、余额解析器
-│       │   ├── storage.py          # JSON 持久化存储与密码缓存
+│       │   ├── storage.py          # JSON 持久化存储、导入导出
 │       │   └── theme.py            # 平台颜色主题
 │       └── ui/
 │           ├── home_screen.py      # 首页卡片堆叠 / 列表双模式、滑动动画、全局搜索
 │           ├── lock_screen.py      # 密码设置 / 解锁 / 生物认证
 │           ├── platform_screen.py  # 平台详情、Key 列表、余额查询、Key 校验
 │           ├── widgets.py          # 可复用组件（TouchCard、KeyItem、PlatformListItem 等）
-│           ├── popups.py           # 弹窗（添加平台、重命名 Key、确认删除等）
+│           ├── popups.py           # 弹窗（添加 Key、编辑平台、导入导出等）
 │           └── kv/                 # Kivy 布局文件（Canvas 绘制图标）
 ├── assets/
 │   ├── icon/                       # 平台图标 + 应用 Logo
@@ -146,7 +147,7 @@ key-manager/
 | `~/.key_manager_config.json` | 加密后的 Key 和平台配置 |
 | Android `SharedPreferences` | 生物认证密钥（设备绑定加密） |
 
-加密方案：PBKDF2-HMAC-SHA256 (200,000 iterations) &#8594; 256 位密钥 &#8594; HMAC-CTR + PKCS7 加密 &#8594; HMAC-SHA256 完整性校验。
+加密方案：PBKDF2-HMAC-SHA256 (600,000 iterations) &#8594; 256 位密钥 &#8594; AES-256-GCM 加密（内建认证和完整性校验）。
 
 ## 技术栈
 
@@ -154,7 +155,8 @@ key-manager/
 |---|---|
 | UI 框架 | [Kivy](https://kivy.org/) 2.3+ |
 | HTTP 客户端 | [httpx](https://www.python-httpx.org/) |
-| 加密 | Python `hashlib` / `hmac` / `base64`（标准库） |
+| 加密 | [cryptography](https://cryptography.io/) (AES-256-GCM, PBKDF2) |
+| Android 文件 | [androidstorage4kivy](https://github.com/Android-for-Python/androidstorage4kivy) |
 | Android 构建 | [Buildozer](https://buildozer.readthedocs.io/) |
 | 包管理 | [uv](https://docs.astral.sh/uv/) / pip |
 
@@ -177,5 +179,5 @@ key-manager/
 ---
 
 <p align="center">
-  <sub>Made with Kivy, httpx, and Python standard library.</sub>
+  <sub>Built with Kivy, httpx, and cryptography.</sub>
 </p>
