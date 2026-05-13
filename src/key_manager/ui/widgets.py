@@ -192,6 +192,19 @@ class KeyItem(Widget):
     decrypt_ok = BooleanProperty(True)
     key_status = StringProperty("unknown")  # "unknown", "valid", "invalid", "checking"
 
+    def _get_raw_key(self):
+        """Lazy-decrypt this single key on demand (only for copy / verify).
+        Decrypted value is short-lived: used immediately then eligible for GC."""
+        from ..core import storage
+        result = storage.get_key(self.platform_id, self.key_index)
+        if result is None:
+            return ""
+        self.decrypt_ok = result["decrypt_ok"]
+        self.raw_key = result["key"]
+        if not self.decrypt_ok:
+            self.masked_key = "[decrypt error]"
+        return self.raw_key if self.decrypt_ok else ""
+
     def open_menu(self, button):
         from .popups import RenameKeyPopup
         from ..core.events import bus
@@ -217,17 +230,19 @@ class KeyItem(Widget):
             return btn
 
         def do_verify():
-            if not self.decrypt_ok:
+            raw = self._get_raw_key()
+            if not raw:
                 App.get_running_app().show_snackbar("Cannot verify: decryption failed", "error")
                 return
             bus.dispatch('on_navigate', 'verify_key',
-                         platform_id=self.platform_id, key=self.raw_key)
+                         platform_id=self.platform_id, key=raw)
 
         def do_copy():
-            if not self.decrypt_ok:
+            raw = self._get_raw_key()
+            if not raw:
                 App.get_running_app().show_snackbar("Cannot copy: decryption failed", "error")
                 return
-            Clipboard.copy(self.raw_key)
+            Clipboard.copy(raw)
             App.get_running_app().show_snackbar("Copied to clipboard", "success")
 
         def do_rename():
@@ -255,7 +270,8 @@ class KeyItem(Widget):
 #  EMPTY KEY STATE
 # ================================================================
 class EmptyKeyState(Widget):
-    pass
+    message = StringProperty("No keys yet")
+    hint = StringProperty("Tap + to add your first key")
 
 
 class PlatformListItem(Widget):

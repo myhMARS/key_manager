@@ -129,5 +129,7 @@ class LockScreen(Screen):
             self._try_biometric()
 
     def _go_home(self):
+        from ..core import storage
+        storage.migrate_masked_fields()
         from ..core.events import bus
         bus.dispatch('on_navigate', 'home', no_transition=True)

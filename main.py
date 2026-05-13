@@ -112,17 +112,12 @@ class KeyManagerApp(App):
     def _on_key_changed(self, _, platform_id, **kwargs):
         """Handle key mutations: perform delete if needed, then refresh."""
         key_index = kwargs.get('key_index', None)
-        new_key_index = kwargs.get('new_key_index', None)
         if key_index is not None:
             storage.delete_key(platform_id, key_index)
             key_validator.on_key_deleted(platform_id, key_index)
         screen = self.sm.get_screen('platform')
         if screen.platform_id == platform_id:
             screen.refresh_keys()
-            # Only validate on add (not delete — cached status is preserved)
-            if key_index is None and new_key_index is not None:
-                from kivy.clock import Clock
-                Clock.schedule_once(lambda dt: screen._validate_all_keys(key_index=new_key_index), 0.5)
 
     def _on_platform_changed(self, _, platform_id):
         """Rebuild home deck and reload platform screen after platform changes."""

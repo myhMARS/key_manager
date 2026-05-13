@@ -71,6 +71,19 @@ class Platform:
     icon_path: str = ""
     is_custom: bool = False
 
+    @property
+    def validation_url(self) -> str | None:
+        """Return balance_url (preferred) or verify_url, or None."""
+        if self.balance_url:
+            return self.base_url + self.balance_url
+        if self.verify_url:
+            return self.base_url + self.verify_url
+        return None
+
+    @property
+    def has_validation(self) -> bool:
+        return bool(self.balance_url or self.verify_url)
+
 
 # Built-in platforms
 BUILTIN_PLATFORMS: dict[str, Platform] = {
@@ -117,6 +130,14 @@ BUILTIN_PLATFORMS: dict[str, Platform] = {
         base_url="https://api.moonshot.cn",
         balance_url="/v1/users/me/balance",
         key_prefix="sk-",
+    ),
+    "zhipu": Platform(
+        id="zhipu",
+        name="智谱 GLM",
+        icon="Z",
+        icon_path="assets/icon/zhipu.png",
+        base_url="https://open.bigmodel.cn/api/paas/v4",
+        verify_url="/models",
     ),
 }
 

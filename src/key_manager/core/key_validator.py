@@ -37,33 +37,29 @@ def validate_all():
 
     def _run():
         for plat in platforms:
-            if not plat.verify_url and not plat.balance_url:
+            if not plat.has_validation:
                 continue
 
-            keys = storage.get_keys(plat.id)
+            # Read metadata without decrypting
+            keys = storage.get_keys(plat.id, decrypt=False)
             for idx, k in enumerate(keys):
                 with _lock:
                     if _generation != gen:
                         return
-                if not k.get("decrypt_ok", True):
+
+                # Decrypt right before use; raw is overwritten each iteration
+                raw, ok = storage.try_decrypt(k["encrypted_key"])
+                if not ok or not raw:
                     set_status(plat.id, idx, "error")
                     continue
 
                 set_status(plat.id, idx, "checking")
 
                 try:
-                    headers = {"Authorization": plat.auth_header.format(api_key=k["key"])}
+                    headers = {"Authorization": plat.auth_header.format(api_key=raw)}
                     with httpx.Client(timeout=8) as client:
-                        if plat.balance_url:
-                            url = plat.base_url + plat.balance_url
-                            resp = client.get(url, headers=headers)
-                            valid = resp.status_code == 200
-                        elif plat.verify_url:
-                            url = plat.base_url + plat.verify_url
-                            resp = client.get(url, headers=headers)
-                            valid = resp.status_code == 200
-                        else:
-                            continue
+                        resp = client.get(plat.validation_url, headers=headers)
+                        valid = resp.status_code == 200
                         set_status(plat.id, idx, "valid" if valid else "invalid")
                 except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError):
                     set_status(plat.id, idx, "error")
@@ -74,8 +70,10 @@ def validate_all():
 
 
 def on_key_deleted(platform_id, deleted_index):
-    """Shift cache entries down after a key is deleted."""
+    """Cancel background validation, then shift cache entries down."""
+    global _generation
     with _lock:
+        _generation += 1  # cancel running validate_all to avoid stale indices
         _status_cache.pop((platform_id, deleted_index), None)
         to_shift = [
             (idx, _status_cache.pop((platform_id, idx)))

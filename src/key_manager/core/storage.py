@@ -45,6 +45,8 @@ def _default_config() -> dict:
             "openai": {"keys": []},
             "bailian": {"keys": []},
             "mimo": {"keys": []},
+            "zhipu": {"keys": []},
+            "moonshot": {"keys": []},
         }
     }
 
@@ -93,18 +95,94 @@ class DecryptionError(Exception):
     pass
 
 
-def get_keys(platform_id: str) -> list:
-    """Get decrypted keys. Each key dict has 'key' and 'decrypt_ok' fields."""
+_MIGRATED = False
+
+
+def migrate_masked_fields():
+    """One-time: compute and persist 'masked' for keys created before this
+    field existed. Called after unlock so _password is available."""
+    global _MIGRATED
+    if _MIGRATED:
+        return
+    _MIGRATED = True
+
+    cfg = read_config()
+    changed = False
+    for pdata in cfg.get("platforms", {}).values():
+        for k in pdata.get("keys", []):
+            if k.get("masked"):
+                continue
+            raw, ok = try_decrypt(k.get("key", ""))
+            if ok and raw:
+                k["masked"] = _make_masked(raw)
+            else:
+                k["masked"] = "****"
+            changed = True
+    if changed:
+        write_config(cfg)
+
+
+def try_decrypt(encrypted_key: str) -> tuple[str, bool]:
+    """Decrypt a single encrypted key. Returns (plaintext, ok)."""
+    if not encrypted_key:
+        return "", False
+    try:
+        return decrypt_key(encrypted_key, _password), True
+    except (ValueError, Exception):
+        return "", False
+
+
+def get_key(platform_id: str, key_index: int) -> dict | None:
+    """Decrypt a single key. Returns None if index out of range."""
     cfg = read_config()
     keys = cfg.get("platforms", {}).get(platform_id, {}).get("keys", [])
+    if key_index < 0 or key_index >= len(keys):
+        return None
+    k = keys[key_index]
+    raw, ok = try_decrypt(k["key"])
+    return {"name": k.get("name", ""), "key": raw, "decrypt_ok": ok}
+
+
+def get_keys(platform_id: str, decrypt: bool = True) -> list:
+    """Get keys. If *decrypt* is True, each key dict has decrypted 'key' and
+    'decrypt_ok' fields. If False, 'key' is empty and 'decrypt_ok' defaults
+    to True — use this for display when only the pre-computed 'masked' is needed.
+
+    Always returns new dicts; never mutates the stored config data.
+    """
+    cfg = read_config()
+    keys = cfg.get("platforms", {}).get(platform_id, {}).get("keys", [])
+    if not decrypt:
+        return [
+            {
+                "name": k.get("name", ""),
+                "key": "",
+                "encrypted_key": k.get("key", ""),
+                "masked": k.get("masked") or "****",
+                "created_at": k.get("created_at", ""),
+                "decrypt_ok": True,
+            }
+            for k in keys
+        ]
+    result = []
     for k in keys:
-        try:
-            k["key"] = decrypt_key(k["key"], _password)
-            k["decrypt_ok"] = True
-        except (ValueError, Exception):
-            k["key"] = ""
-            k["decrypt_ok"] = False
-    return keys
+        entry = {
+            "name": k.get("name", ""),
+            "masked": k.get("masked", ""),
+            "created_at": k.get("created_at", ""),
+        }
+        raw, ok = try_decrypt(k["key"])
+        entry["key"] = raw
+        entry["decrypt_ok"] = ok
+        result.append(entry)
+    return result
+
+
+def _make_masked(key: str) -> str:
+    """Compute masked representation while plaintext is available."""
+    if len(key) > 10:
+        return key[:6] + "****" + key[-4:]
+    return "****"
 
 
 def add_key(platform_id: str, name: str, key: str):
@@ -114,6 +192,7 @@ def add_key(platform_id: str, name: str, key: str):
     cfg["platforms"][platform_id]["keys"].append({
         "name": name,
         "key": encrypt_key(key, _password),
+        "masked": _make_masked(key),
         "created_at": datetime.now().strftime("%Y-%m-%d"),
     })
     write_config(cfg)

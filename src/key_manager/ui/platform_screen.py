@@ -112,32 +112,24 @@ class PlatformScreen(Screen):
         popup.open()
 
     def refresh_keys(self, search_text=""):
-        keys = storage.get_keys(self.platform_id)
+        """Refresh key list without decrypting keys. Uses pre-computed masked
+        values stored at key creation time. Decryption only happens on-demand
+        when copying or verifying."""
+        query = search_text.strip().lower()
+        keys = storage.get_keys(self.platform_id, decrypt=False)
+
         container = self.ids.key_list_container
         container.clear_widgets()
 
-        # Filter by search text (match key name, case-insensitive)
-        query = search_text.strip().lower()
-        filtered = []
-        for i, k in enumerate(keys):
-            if query and query not in k["name"].lower():
-                continue
-            filtered.append((i, k))
+        filtered = [(i, k) for i, k in enumerate(keys)
+                    if not query or query in k.get("name", "").lower()]
 
         for i, k in filtered:
-            if k.get("decrypt_ok", True):
-                masked = (
-                    k["key"][:6] + "****" + k["key"][-4:]
-                    if len(k["key"]) > 10 else "****"
-                )
-            else:
-                masked = "[decrypt error]"
-
             item = KeyItem(
                 key_name=k["name"],
-                masked_key=masked,
-                created_at=k["created_at"],
-                raw_key=k["key"],
+                masked_key=k.get("masked", ""),
+                created_at=k.get("created_at", ""),
+                raw_key="",  # lazy-decrypt on copy/verify
                 key_index=i,
                 platform_id=self.platform_id,
                 has_balance=bool(self._plat.balance_url if self._plat else False),
@@ -149,8 +141,12 @@ class PlatformScreen(Screen):
         if not filtered:
             container.add_widget(EmptyKeyState())
 
-        # Poll for status updates from the global background validator
         self._poll_status_updates()
+
+        unknown_items = [w for w in container.children[::-1]
+                         if isinstance(w, KeyItem) and w.key_status == "unknown"]
+        if unknown_items:
+            self._validate_all_keys(only_unknown=True)
 
     def on_search_text(self, text):
         """Debounced search within platform keys."""
@@ -184,14 +180,15 @@ class PlatformScreen(Screen):
 
         self._poll_event = Clock.schedule_interval(_poll, 0.3)
 
-    def _validate_all_keys(self, key_index=None):
+    def _validate_all_keys(self, key_index=None, only_unknown=False):
         """Background-validate keys for the current platform.
 
         If *key_index* is given, only the key at that index is validated.
+        If *only_unknown* is True, only keys with "unknown" status are validated.
         """
         if not self._plat:
             return
-        if not self._plat.verify_url and not self._plat.balance_url:
+        if not self._plat.has_validation:
             return
 
         plat = self._plat
@@ -205,28 +202,32 @@ class PlatformScreen(Screen):
 
         if key_index is not None:
             items = [w for w in items if w.key_index == key_index]
+        elif only_unknown:
+            items = [w for w in items if w.key_status == "unknown"]
+
+        if not items:
+            return
 
         # Mark as checking
         for item in items:
-            if item.decrypt_ok:
-                item.key_status = "checking"
+            item.key_status = "checking"
 
         def _validate_single(item):
-            if not item.decrypt_ok or not item.raw_key:
+            # Decrypt this single key right before use; discarded after HTTP
+            raw = storage.get_key(platform_id, item.key_index)
+            if raw is None or not raw.get("decrypt_ok") or not raw.get("key"):
+                def _mark_decrypt_err(dt, it=item):
+                    if self._validation_generation != generation:
+                        return
+                    it.key_status = "error"
+                    set_key_status(platform_id, it.key_index, "error")
+                Clock.schedule_once(_mark_decrypt_err, 0)
                 return
             try:
-                headers = {"Authorization": plat.auth_header.format(api_key=item.raw_key)}
+                headers = {"Authorization": plat.auth_header.format(api_key=raw["key"])}
                 with httpx.Client(timeout=8) as client:
-                    if plat.balance_url:
-                        url = plat.base_url + plat.balance_url
-                        resp = client.get(url, headers=headers)
-                        valid = resp.status_code == 200
-                    elif plat.verify_url:
-                        url = plat.base_url + plat.verify_url
-                        resp = client.get(url, headers=headers)
-                        valid = resp.status_code == 200
-                    else:
-                        return
+                    resp = client.get(plat.validation_url, headers=headers)
+                    valid = resp.status_code == 200
 
                 def _update(dt, v=valid, it=item):
                     if self._validation_generation != generation:
@@ -272,7 +273,7 @@ class PlatformScreen(Screen):
         plat = self._plat
         if not plat:
             return
-        if not plat.verify_url and not plat.balance_url:
+        if not plat.has_validation:
             App.get_running_app().show_snackbar("No verify URL configured", "warning")
             return
 
@@ -302,19 +303,13 @@ class PlatformScreen(Screen):
             balance_data = None
             try:
                 headers = {"Authorization": plat.auth_header.format(api_key=api_key)}
-                if plat.balance_url:
-                    url = plat.base_url + plat.balance_url
-                    resp = client.get(url, headers=headers)
-                    valid = resp.status_code == 200
-                    if valid:
-                        try:
-                            balance_data = resp.json()
-                        except (ValueError, Exception):
-                            balance_data = "parse_error"
-                elif plat.verify_url:
-                    url = plat.base_url + plat.verify_url
-                    resp = client.get(url, headers=headers)
-                    valid = resp.status_code == 200
+                resp = client.get(plat.validation_url, headers=headers)
+                valid = resp.status_code == 200
+                if plat.balance_url and valid:
+                    try:
+                        balance_data = resp.json()
+                    except (ValueError, Exception):
+                        balance_data = "parse_error"
 
                 def _update(dt, v=valid, bd=balance_data):
                     if self._check_generation != generation:
