@@ -47,6 +47,7 @@ def _default_config() -> dict:
             "mimo": {"keys": []},
             "zhipu": {"keys": []},
             "moonshot": {"keys": []},
+            "minimax": {"keys": []},
         }
     }
 

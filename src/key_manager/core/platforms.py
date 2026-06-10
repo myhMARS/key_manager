@@ -139,6 +139,14 @@ BUILTIN_PLATFORMS: dict[str, Platform] = {
         base_url="https://open.bigmodel.cn/api/paas/v4",
         verify_url="/models",
     ),
+    "minimax": Platform(
+        id="minimax",
+        name="MiniMax",
+        icon="M",
+        icon_path="assets/icon/minimax.png",
+        base_url="https://api.minimax.io",
+        verify_url="/v1/models",
+    ),
 }
 
 # Combined platforms dict (built-in + custom)

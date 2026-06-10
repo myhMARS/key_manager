@@ -8,6 +8,7 @@ PLATFORM_COLORS = {
     "mimo":     (0.55, 0.36, 0.76, 1),
     "zhipu":    (0.23, 0.45, 0.95, 1),
     "moonshot": (0.85, 0.55, 0.20, 1),
+    "minimax":  (0.25, 0.35, 0.90, 1),
 }
 
 DEFAULT_CUSTOM_COLOR = (0.4, 0.4, 0.4, 1)
